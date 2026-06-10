@@ -6,6 +6,11 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
 const URL = 'https://oracleapex.com/ords/lasenda/articulos/listar';
+const CREAR_URL = 'https://oracleapex.com/ords/lasenda/articulos/crear';
+const ACTUALIZAR_URL = 'https://oracleapex.com/ords/lasenda/articulos/actualizar';
+const ELIMINAR_URL = 'https://oracleapex.com/ords/lasenda/articulos/eliminar';
+
+const safeParse = (s: string) => { try { return JSON.parse(s); } catch { return null; } };
 
 type Articulo = {
   id_articulo: number;
@@ -22,7 +27,7 @@ type Articulo = {
 };
 
 export function Articulos() {
-  const { token } = useAuth();
+  const { authFetch } = useAuth();
   const { show } = useToast();
   const [items, setItems] = useState<Articulo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +41,7 @@ export function Articulos() {
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch(URL, { headers: { 'X-Token': token ?? '' } });
+      const res = await authFetch(URL);
       if (!res.ok) throw new Error();
       const data: Articulo[] = await res.json();
       setItems(Array.isArray(data) ? data : []);
@@ -121,10 +126,33 @@ export function Articulos() {
           mode={form.mode}
           art={form.art}
           onClose={() => setForm(null)}
-          onSave={() => {
-            // TODO: conectar endpoint de crear/modificar
-            show(form.mode === 'crear' ? 'Artículo creado (pendiente conectar API)' : 'Artículo modificado (pendiente conectar API)', 'success');
-            setForm(null);
+          onSave={async (payload) => {
+            const crear = form.mode === 'crear';
+            const url = crear ? CREAR_URL : `${ACTUALIZAR_URL}/${form.art!.id_articulo}`;
+            try {
+              const res = await authFetch(url, {
+                method: crear ? 'POST' : 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+              });
+              const text = await res.text();
+              let data: any = null;
+              try { data = text ? JSON.parse(text) : null; } catch { /* no es JSON */ }
+              const inner = typeof data?.resultado === 'string' ? safeParse(data.resultado) : data?.resultado ?? data;
+              if (!res.ok || (inner && String(inner.ok) === 'false')) {
+                const msg = inner?.mensaje || inner?.error || data?.message || text || `HTTP ${res.status}`;
+                throw new Error(msg);
+              }
+              show(crear ? 'Artículo creado' : 'Artículo modificado', 'success');
+              setForm(null);
+              load();
+            } catch (e: any) {
+              console.error('[articulos] error guardando', { url, method: crear ? 'POST' : 'PUT', payload, error: e });
+              const detail = e?.message === 'Failed to fetch'
+                ? 'red/CORS — revisá la consola (Network). El servidor no respondió o bloqueó la petición.'
+                : (e?.message ?? 'error desconocido');
+              show(`No se pudo ${crear ? 'crear' : 'modificar'}: ${detail}`, 'error');
+            }
           }}
         />
       )}
@@ -133,10 +161,28 @@ export function Articulos() {
         <ConfirmDelete
           art={del}
           onClose={() => setDel(null)}
-          onConfirm={() => {
-            // TODO: conectar endpoint de eliminar
-            show('Artículo eliminado (pendiente conectar API)', 'success');
-            setDel(null);
+          onConfirm={async () => {
+            const url = `${ELIMINAR_URL}/${del.id_articulo}`;
+            try {
+              const res = await authFetch(url, { method: 'DELETE' });
+              const text = await res.text();
+              let data: any = null;
+              try { data = text ? JSON.parse(text) : null; } catch { /* no es JSON */ }
+              const inner = typeof data?.resultado === 'string' ? safeParse(data.resultado) : data?.resultado ?? data;
+              if (!res.ok || (inner && String(inner.ok) === 'false')) {
+                const msg = inner?.mensaje || inner?.msg || inner?.error || data?.message || text || `HTTP ${res.status}`;
+                throw new Error(msg);
+              }
+              show('Artículo eliminado', 'success');
+              setDel(null);
+              load();
+            } catch (e: any) {
+              console.error('[articulos] error eliminando', { url, error: e });
+              const detail = e?.message === 'Failed to fetch'
+                ? 'red/CORS — revisá la consola (Network).'
+                : (e?.message ?? 'error desconocido');
+              show(`No se pudo eliminar: ${detail}`, 'error');
+            }
           }}
         />
       )}
@@ -239,7 +285,7 @@ function ArticuloForm({
   mode: 'crear' | 'editar';
   art: Articulo | null;
   onClose: () => void;
-  onSave: () => void;
+  onSave: (payload: Record<string, unknown>) => Promise<void>;
 }) {
   useEscClose(onClose);
   const [vals, setVals] = useState<Record<string, string>>(() => {
@@ -251,9 +297,26 @@ function ArticuloForm({
     return base;
   });
   const [activo, setActivo] = useState(art ? art.activo === 'S' : true);
+  const [saving, setSaving] = useState(false);
 
   const set = (k: string, v: string) => setVals((s) => ({ ...s, [k]: v }));
   const valid = vals.descripcion.trim().length > 0;
+
+  const submit = async () => {
+    if (!valid || saving) return;
+    const payload: Record<string, unknown> = { activo: activo ? 'S' : 'N' };
+    FORM_FIELDS.forEach((f) => {
+      const raw = vals[f.key].trim();
+      if (f.numeric) payload[f.key] = raw === '' ? null : Number(raw);
+      else payload[f.key] = raw === '' ? null : raw;
+    });
+    setSaving(true);
+    try {
+      await onSave(payload);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -291,17 +354,23 @@ function ArticuloForm({
           </button>
         </div>
 
-        <button className="cpw-submit" onClick={onSave} disabled={!valid}>
-          {mode === 'crear' ? 'Crear artículo' : 'Guardar cambios'}
-          <ion-icon name="checkmark" style={{ fontSize: 18 }} />
+        <button className="cpw-submit" onClick={submit} disabled={!valid || saving}>
+          {saving ? 'Guardando…' : mode === 'crear' ? 'Crear artículo' : 'Guardar cambios'}
+          <ion-icon name={saving ? 'hourglass-outline' : 'checkmark'} style={{ fontSize: 18 }} />
         </button>
       </div>
     </div>
   );
 }
 
-function ConfirmDelete({ art, onClose, onConfirm }: { art: Articulo; onClose: () => void; onConfirm: () => void }) {
+function ConfirmDelete({ art, onClose, onConfirm }: { art: Articulo; onClose: () => void; onConfirm: () => Promise<void> }) {
   useEscClose(onClose);
+  const [deleting, setDeleting] = useState(false);
+  const run = async () => {
+    if (deleting) return;
+    setDeleting(true);
+    try { await onConfirm(); } finally { setDeleting(false); }
+  };
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-sheet confirm-sheet" onClick={(e) => e.stopPropagation()}>
@@ -313,9 +382,9 @@ function ConfirmDelete({ art, onClose, onConfirm }: { art: Articulo; onClose: ()
           ¿Seguro que querés eliminar <strong>{art.descripcion.trim()}</strong> (#{art.id_articulo})? Esta acción no se puede deshacer.
         </div>
         <div className="confirm-actions">
-          <button className="btn-ghost" onClick={onClose}>Cancelar</button>
-          <button className="btn-danger" onClick={onConfirm}>
-            <ion-icon name="trash-outline" /> Eliminar
+          <button className="btn-ghost" onClick={onClose} disabled={deleting}>Cancelar</button>
+          <button className="btn-danger" onClick={run} disabled={deleting}>
+            <ion-icon name={deleting ? 'hourglass-outline' : 'trash-outline'} /> {deleting ? 'Eliminando…' : 'Eliminar'}
           </button>
         </div>
       </div>

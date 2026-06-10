@@ -9,6 +9,7 @@ type AuthCtx = {
   login: (username: string, password: string) => Promise<boolean>;
   applySession: (session: { user: User; token: string }) => void;
   logout: () => void;
+  authFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 };
 
 const STORAGE_KEY = '@lasenda/user';
@@ -70,7 +71,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(TOKEN_KEY);
   };
 
-  return <Ctx.Provider value={{ user, token, loading, login, applySession, logout }}>{children}</Ctx.Provider>;
+  // fetch que adjunta el token y cierra sesión si el backend responde 401
+  const authFetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
+    const headers = new Headers(init.headers);
+    if (token) headers.set('X-Token', token);
+    const res = await fetch(input, { ...init, headers });
+    if (res.status === 401) logout();
+    return res;
+  };
+
+  return <Ctx.Provider value={{ user, token, loading, login, applySession, logout, authFetch }}>{children}</Ctx.Provider>;
 }
 
 export const useAuth = () => {

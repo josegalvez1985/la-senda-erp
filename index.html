@@ -39,10 +39,12 @@
         var route = p.get('p');
         if (route) {
           var q = p.get('q');
+          // base path actual (p.ej. /la-senda-erp), sin la barra final
+          var base = window.location.pathname.replace(/\/$/, '');
           window.history.replaceState(
             null,
             '',
-            route + (q ? '?' + q : '') + window.location.hash
+            base + route + (q ? '?' + q : '') + window.location.hash
           );
         }
       })();
