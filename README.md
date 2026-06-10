@@ -1,20 +1,20 @@
 # La Senda — Admin (React + Vite)
 
-App web administrativa para la Librería Cristiana **La Senda**. Responsive (móvil y escritorio). Solo frontend.
+App web administrativa para la Librería Cristiana **La Senda**. Responsive (móvil y escritorio). Frontend React + backend Oracle APEX (ORDS).
 
 ## Pantallas incluidas
-- **Login** (mock — cualquier email/password de >3 caracteres) con "recordar mi correo" y toggle de tema
-- **Dashboard** con KPIs, accesos rápidos y últimas ventas
-- **Ventas** (listado + búsqueda + alta de ventas)
-- **Compras** (órdenes a proveedores + alta)
-- **Stock / Inventario** con alertas de stock crítico y ajuste de stock
-- **Perfil** con cierre de sesión y modo claro/oscuro
+- **Login** real contra `POST /auth/login` (usuario + contraseña, no email); "recordar usuario y contraseña", toggle de tema y **biometría** (Face ID / Touch ID / huella o WebAuthn)
+- **Dashboard** con KPIs y últimas ventas
+- **Menú jerárquico** (acordeón) con 3 grupos: Configuración Inicial, Día a día, Resultados — sidebar en desktop, drawer en móvil
+- **Artículos** (`Configuración Inicial`): listado desde API con header `X-Token`, búsqueda, modal de detalle y CRUD (crear / modificar / eliminar)
+- **Perfil** (ítem raíz): cambio de contraseña (`POST /auth/clave`), toggle biométrico, modo claro/oscuro, cierre de sesión
 
 ## Stack
-- React 18 + Vite
+- React 18 + Vite + TypeScript
 - React Router DOM (rutas)
-- TypeScript
+- Capacitor (Android / iOS) + `@aparajita/capacitor-biometric-auth`
 - Ionicons (web components, vía CDN)
+- Backend: Oracle APEX / ORDS (`https://oracleapex.com/ords/lasenda/…`)
 
 ## Cómo correr
 
@@ -60,20 +60,30 @@ Notas:
 ## Estructura
 ```
 public/
-  logo.png             # Logo de la marca
+  logo.png                 # Logo de la marca
 src/
-  main.tsx             # Entry
-  App.tsx              # Rutas + providers
-  index.css            # Estilos globales + tema
+  main.tsx                 # Entry (init nativo: status bar / splash)
+  App.tsx                  # Rutas + providers
+  index.css                # Estilos globales + tema
   layout/
-    TabsLayout.tsx     # Sidebar (desktop) + tab bar (móvil)
-  pages/               # Login, Dashboard, Ventas, Compras, Stock, Perfil
-  components/          # Card, Header, Badge, SearchBar, SummaryCard, EmptyState, FormModal
-  context/             # AuthContext, DataContext, ThemeContext (localStorage)
-  data/                # Datos mock + helpers de formato
+    TabsLayout.tsx         # Sidebar + drawer + menú jerárquico (acordeón)
+  pages/
+    Login.tsx, Dashboard.tsx, Perfil.tsx, Modulo.tsx
+    ConfiguracionInicial/  # Artículos (+ futuros módulos del grupo)
+    DiaADia/               # Módulos del grupo Día a día
+    Resultados/            # Módulos del grupo Resultados
+    GUIA_FORMULARIOS.md    # Patrón estándar para nuevos módulos (detalle + CRUD)
+    README.md              # Mapa de páginas por grupo
+  components/              # Card, Header, Badge, SearchBar, SummaryCard, EmptyState, FormModal, ChangePasswordModal
+  context/                 # AuthContext, DataContext, ThemeContext, ToastContext
+  lib/                     # biometric.ts (WebAuthn / biometría nativa)
+  data/                    # menu.ts (estructura del menú), mock.ts (helpers/formato)
 ```
 
-## Datos y persistencia
-Los datos arrancan desde `src/data/mock.ts` y se persisten en `localStorage` (claves `@lasenda/*`). El alta de ventas/compras/productos y el ajuste de stock se guardan automáticamente.
+## Backend y autenticación
+- **Login**: `POST /auth/login` con `{ username, password }`. La respuesta envuelve un string JSON en `resultado` (`{ ok, token, username, nombre }`); se guarda el token en `localStorage` y se envía como header `X-Token` en las llamadas a la API.
+- **Cambio de clave**: `POST /auth/clave` con `{ username, actual, nueva }`.
+- **Artículos**: `GET /articulos/listar` (header `X-Token`). Los endpoints de crear/modificar/eliminar están pendientes de conectar (la UI ya existe).
 
-Para conectar a un backend real, reemplazá la lógica de `DataContext` por llamadas `fetch` a tu API.
+## Nuevos módulos
+Seguí el patrón de [src/pages/GUIA_FORMULARIOS.md](src/pages/GUIA_FORMULARIOS.md): primero el detalle (tarjetas → modal con Eliminar/Modificar), luego el form de crear/editar. Tomá [Artículos](src/pages/ConfiguracionInicial/Articulos.tsx) como referencia. Cada módulo se agrega en `src/data/menu.ts` y se enruta en `src/App.tsx`.
