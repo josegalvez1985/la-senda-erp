@@ -1,6 +1,6 @@
 # Guía de estructura de formularios
 
-Patrón estándar para cada módulo del menú. Referencia viva: [ConfiguracionInicial/Articulos.tsx](ConfiguracionInicial/Articulos.tsx).
+Patrón estándar para cada módulo del menú. Referencias vivas: [ConfiguracionInicial/Articulos.tsx](ConfiguracionInicial/Articulos.tsx) (módulo complejo, varios campos) y [ConfiguracionInicial/Categorias.tsx](ConfiguracionInicial/Categorias.tsx) (módulo simple, solo `descripcion`).
 
 ## Reglas
 
@@ -8,8 +8,60 @@ Patrón estándar para cada módulo del menú. Referencia viva: [ConfiguracionIn
 2. Se construye **primero el detalle**: listado de tarjetas → al hacer click, **modal de detalle** con botones **Eliminar** y **Modificar**.
 3. El form (crear/editar) y la confirmación de borrado viven en el **mismo archivo** que la página (componentes locales), no en `components/`.
 4. El header lleva el botón `+` (`onAction`) que abre el form en modo `crear`.
-5. Datos desde el endpoint con header `X-Token` (token de `useAuth()`). Acciones que aún no tienen endpoint → `toast` placeholder + `// TODO: conectar endpoint`.
-6. Enrutar en `src/App.tsx` y agregar la entrada en `src/data/menu.ts`.
+5. **Todas** las llamadas a la API van por `authFetch` de `useAuth()` — adjunta el header `X-Token` automáticamente y, si el backend responde **401**, hace `logout()` y `RequireAuth` redirige a `/login`. No usar `fetch` crudo ni pasar el token a mano.
+6. Endpoints CRUD estándar del backend (ORDS): `listar` (GET), `crear` (POST), `actualizar/:id` (PUT), `eliminar/:id` (DELETE). El `id` va en la URL; el token siempre en el header.
+7. Acciones que aún no tienen endpoint → `toast` placeholder + `// TODO: conectar endpoint`.
+8. Enrutar en `src/App.tsx`: importar la página, agregar su `<Route path="/m/xxx" .../>` **explícito** y **excluirla del filtro genérico** (`.filter(... it.to !== '/m/xxx')`) que renderiza `<Modulo />`. Si no la excluís, se monta dos veces. Agregar la entrada en `src/data/menu.ts` si no existe.
+
+## Manejo de respuesta y errores (crear/actualizar/eliminar)
+
+El backend envuelve a veces la respuesta en `resultado` (string JSON) con `{ ok, msg/mensaje }`. Patrón uniforme:
+
+```tsx
+const safeParse = (s: string) => { try { return JSON.parse(s); } catch { return null; } };
+
+const res = await authFetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+const text = await res.text();
+let data: any = null;
+try { data = text ? JSON.parse(text) : null; } catch { /* no es JSON */ }
+const inner = typeof data?.resultado === 'string' ? safeParse(data.resultado) : data?.resultado ?? data;
+if (!res.ok || (inner && String(inner.ok) === 'false')) {
+  throw new Error(inner?.mensaje || inner?.msg || inner?.error || data?.message || text || `HTTP ${res.status}`);
+}
+// éxito: show(...), cerrar modal, load()
+```
+
+- `Form`/`ConfirmDelete` llevan estado de envío local (`saving`/`deleting`) y deshabilitan el botón mientras corre; `onSave`/`onConfirm` son `async`.
+- Un `"Failed to fetch"` no es error del backend: es red/CORS. El detalle real está en DevTools → Network, no en el `catch`.
+
+### Checklist de backend (ORDS) — errores típicos al conectar un módulo nuevo
+
+Estos fallos son **del backend**, no del front. Síntoma → causa:
+
+- **`No 'Access-Control-Allow-Origin' header` / "Failed to fetch":** falta CORS para el origen en esa ruta. Habilitar a nivel esquema (cubre todas las rutas/métodos):
+  ```sql
+  BEGIN
+    ORDS_ADMIN.SET_SCHEMA_ORIGINS_ALLOWED(
+      p_schema => 'LASENDA',
+      p_origins_allowed => 'http://localhost:5173,https://josegalvez1985.github.io');
+    COMMIT;
+  END;
+  ```
+- **`x-token is not allowed by Access-Control-Allow-Headers`:** el handler no declara el header `X-Token`. En cada handler, sección **Parámetros**, agregar: Nombre `X-Token`, **Variable de enlace `token`**, Acceso `IN`, Origen `HTTP HEADER`, Tipo `STRING`.
+- **401 al crear/actualizar/eliminar (pero listar funciona):** la **Variable de enlace** del parámetro `X-Token` no es exactamente `token` → `:token` llega null en el PL/SQL. Corregirla a `token`.
+- **Ruta con `:id` da 404/CORS:** la **Plantilla de URI** debe ser `actualizar/:id` / `eliminar/:id` (con `:id`), no `actualizar` a secas. Sin `:id` la ruta `/actualizar/66` no matchea.
+- **PUT/DELETE fallan pero POST anda:** el preflight de esos métodos no está permitido. Lo resuelve el `SET_SCHEMA_ORIGINS_ALLOWED` de arriba.
+
+## Campos FK (categoría, marca, autor, etc.) — selector con nombres
+
+Cuando un campo guarda solo el **código** de otro catálogo (ej. `id_categoria`), NO crear endpoint nuevo: reusar el `listar` de ese catálogo como lista de valores (LOV). Patrón (ver `Articulos.tsx`, categoría):
+
+- En la página: estado `const [categorias, setCategorias] = useState<Categoria[]>([])`, función `loadCategorias()` con `authFetch(CATEGORIAS_URL)`, llamada en el mismo `useEffect` que `load()`. Si falla, no rompe: el detalle/selector cae al código.
+- Mapa `id→nombre` con `useMemo` para mostrar el nombre en el **detalle** (`catNombre.get(id) ?? String(id)`).
+- En el **form**, el campo se renderiza como `<select className="form-input">` (no `<input>`): `<option value="">— Seleccionar —</option>` + un option por catálogo (`value={String(id)}`, texto = `descripcion`). El payload sigue mandando el número.
+- Pasar `catNombre` al `Modal` y `categorias` al `Form` como props.
+
+Una sola carga del `listar` sirve para el selector del form y para mostrar el nombre en el detalle. Mismo patrón para cada FK (marca, autor, editorial, color, iva).
 
 ## Componentes por archivo
 
@@ -41,11 +93,14 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
 const URL = 'https://oracleapex.com/ords/lasenda/<modulo>/listar';
+const CREAR_URL = 'https://oracleapex.com/ords/lasenda/<modulo>/crear';
+const ACTUALIZAR_URL = 'https://oracleapex.com/ords/lasenda/<modulo>/actualizar';
+const ELIMINAR_URL = 'https://oracleapex.com/ords/lasenda/<modulo>/eliminar';
 
 type Item = { id: number; descripcion: string; activo: string; /* ...campos del JSON */ };
 
 export function Modulo() {
-  const { token } = useAuth();
+  const { authFetch } = useAuth();
   const { show } = useToast();
   const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,7 +113,7 @@ export function Modulo() {
   const load = async () => {
     setLoading(true); setError(false);
     try {
-      const res = await fetch(URL, { headers: { 'X-Token': token ?? '' } });
+      const res = await authFetch(URL);
       if (!res.ok) throw new Error();
       const data: Item[] = await res.json();
       setItems(Array.isArray(data) ? data : []);

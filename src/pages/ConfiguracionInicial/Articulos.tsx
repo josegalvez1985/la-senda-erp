@@ -9,6 +9,9 @@ const URL = 'https://oracleapex.com/ords/lasenda/articulos/listar';
 const CREAR_URL = 'https://oracleapex.com/ords/lasenda/articulos/crear';
 const ACTUALIZAR_URL = 'https://oracleapex.com/ords/lasenda/articulos/actualizar';
 const ELIMINAR_URL = 'https://oracleapex.com/ords/lasenda/articulos/eliminar';
+const CATEGORIAS_URL = 'https://oracleapex.com/ords/lasenda/categorias/listar';
+
+type Categoria = { id_categoria: number; descripcion: string };
 
 const safeParse = (s: string) => { try { return JSON.parse(s); } catch { return null; } };
 
@@ -36,6 +39,7 @@ export function Articulos() {
   const [sel, setSel] = useState<Articulo | null>(null);
   const [form, setForm] = useState<{ mode: 'crear' | 'editar'; art: Articulo | null } | null>(null);
   const [del, setDel] = useState<Articulo | null>(null);
+  const [categorias, setCategorias] = useState<Categoria[]>([]);
 
   const load = async () => {
     setLoading(true);
@@ -52,10 +56,26 @@ export function Articulos() {
     }
   };
 
+  const loadCategorias = async () => {
+    try {
+      const res = await authFetch(CATEGORIAS_URL);
+      if (!res.ok) return;
+      const data: Categoria[] = await res.json();
+      setCategorias(Array.isArray(data) ? data : []);
+    } catch { /* el detalle/selector mostrará el código si falla */ }
+  };
+
   useEffect(() => {
     load();
+    loadCategorias();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const catNombre = useMemo(() => {
+    const m = new Map<number, string>();
+    categorias.forEach((c) => m.set(c.id_categoria, c.descripcion.trim()));
+    return m;
+  }, [categorias]);
 
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -109,6 +129,7 @@ export function Articulos() {
       {sel && (
         <ArticuloModal
           art={sel}
+          catNombre={catNombre}
           onClose={() => setSel(null)}
           onEdit={() => {
             setForm({ mode: 'editar', art: sel });
@@ -125,6 +146,7 @@ export function Articulos() {
         <ArticuloForm
           mode={form.mode}
           art={form.art}
+          categorias={categorias}
           onClose={() => setForm(null)}
           onSave={async (payload) => {
             const crear = form.mode === 'crear';
@@ -212,11 +234,13 @@ function useEscClose(onClose: () => void) {
 
 function ArticuloModal({
   art,
+  catNombre,
   onClose,
   onEdit,
   onDelete,
 }: {
   art: Articulo;
+  catNombre: Map<number, string>;
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -246,7 +270,11 @@ function ArticuloModal({
               <span className="artm-ico"><ion-icon name={d.icon} /></span>
               <span className="artm-label">{d.label}</span>
               <span className={`artm-val${art[d.key] == null ? ' empty' : ''}`}>
-                {art[d.key] == null ? '—' : String(art[d.key])}
+                {art[d.key] == null
+                  ? '—'
+                  : d.key === 'id_categoria'
+                  ? catNombre.get(art.id_categoria as number) ?? String(art[d.key])
+                  : String(art[d.key])}
               </span>
             </div>
           ))}
@@ -279,11 +307,13 @@ const FORM_FIELDS: { key: keyof Articulo; label: string; numeric?: boolean }[] =
 function ArticuloForm({
   mode,
   art,
+  categorias,
   onClose,
   onSave,
 }: {
   mode: 'crear' | 'editar';
   art: Articulo | null;
+  categorias: Categoria[];
   onClose: () => void;
   onSave: (payload: Record<string, unknown>) => Promise<void>;
 }) {
@@ -337,13 +367,22 @@ function ArticuloForm({
         {FORM_FIELDS.map((f) => (
           <div key={f.key} style={{ marginTop: 12 }}>
             <label className="cpw-label">{f.label}</label>
-            <input
-              className="form-input"
-              value={vals[f.key]}
-              inputMode={f.numeric ? 'numeric' : 'text'}
-              placeholder={f.numeric ? 'ID' : ''}
-              onChange={(e) => set(f.key, e.target.value)}
-            />
+            {f.key === 'id_categoria' ? (
+              <select className="form-input" value={vals[f.key]} onChange={(e) => set(f.key, e.target.value)}>
+                <option value="">— Seleccionar —</option>
+                {categorias.map((c) => (
+                  <option key={c.id_categoria} value={String(c.id_categoria)}>{c.descripcion.trim()}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                className="form-input"
+                value={vals[f.key]}
+                inputMode={f.numeric ? 'numeric' : 'text'}
+                placeholder={f.numeric ? 'ID' : ''}
+                onChange={(e) => set(f.key, e.target.value)}
+              />
+            )}
           </div>
         ))}
 
