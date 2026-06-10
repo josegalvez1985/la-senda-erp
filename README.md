@@ -39,6 +39,19 @@ npm run ios        # build + abre Xcode (solo en macOS)
 - **iOS**: requiere macOS + Xcode. Abrí `ios/App`, seleccioná equipo de firma y Run.
 - **Biometría**: en nativo usa Face ID / Touch ID / huella del SO; en web usa WebAuthn (requiere HTTPS).
 
+## Despliegue web (GitHub Pages)
+
+El push a `main` despliega automáticamente vía GitHub Actions (`.github/workflows/deploy.yml`).
+
+**Activación (una sola vez):** GitHub → *Settings → Pages → Build and deployment → Source: **GitHub Actions***.
+
+URL publicada: `https://josegalvez1985.github.io/la-senda-erp/`
+
+Notas:
+- El `base` del bundle solo es `/la-senda-erp/` cuando el workflow define `GITHUB_PAGES=true`; en local y en Capacitor queda `/`.
+- `public/404.html` + el script en `index.html` dan soporte SPA (rutas profundas no dan 404 al refrescar).
+- Tras un deploy de Pages, corré `npm run sync` antes de compilar nativo para regenerar `dist/` con base `/`.
+
 ## Diseño
 - Paleta: verde bosque `#0F3D2E` + dorado `#C9A24C` (acento)
 - Tema claro/oscuro mediante CSS variables (`[data-theme]`), persistido en `localStorage`
