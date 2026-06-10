@@ -10,6 +10,8 @@ import { Perfil } from './pages/Perfil';
 import { Modulo } from './pages/Modulo';
 import { Articulos } from './pages/ConfiguracionInicial/Articulos';
 import { Categorias } from './pages/ConfiguracionInicial/Categorias';
+import { Marcas } from './pages/ConfiguracionInicial/Marcas';
+import { Autores } from './pages/ConfiguracionInicial/Autores';
 import { menu } from './data/menu';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -45,7 +47,9 @@ export function App() {
                 <Route path="/perfil" element={<Perfil />} />
                 <Route path="/m/articulos" element={<Articulos />} />
                 <Route path="/m/categorias" element={<Categorias />} />
-                {menu.flatMap((g) => g.items ?? []).filter((it) => it.to.startsWith('/m/') && it.to !== '/m/articulos' && it.to !== '/m/categorias').map((it) => (
+                <Route path="/m/marcas" element={<Marcas />} />
+                <Route path="/m/autores" element={<Autores />} />
+                {menu.flatMap((g) => g.items ?? []).filter((it) => it.to.startsWith('/m/') && it.to !== '/m/articulos' && it.to !== '/m/categorias' && it.to !== '/m/marcas' && it.to !== '/m/autores').map((it) => (
                   <Route key={it.to} path={it.to} element={<Modulo />} />
                 ))}
               </Route>
