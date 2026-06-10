@@ -8,6 +8,7 @@ import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Perfil } from './pages/Perfil';
 import { Modulo } from './pages/Modulo';
+import { Articulos } from './pages/ConfiguracionInicial/Articulos';
 import { menu } from './data/menu';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -41,7 +42,8 @@ export function App() {
               >
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/perfil" element={<Perfil />} />
-                {menu.flatMap((g) => g.items ?? []).filter((it) => it.to.startsWith('/m/')).map((it) => (
+                <Route path="/m/articulos" element={<Articulos />} />
+                {menu.flatMap((g) => g.items ?? []).filter((it) => it.to.startsWith('/m/') && it.to !== '/m/articulos').map((it) => (
                   <Route key={it.to} path={it.to} element={<Modulo />} />
                 ))}
               </Route>
