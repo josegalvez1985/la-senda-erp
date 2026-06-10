@@ -7,9 +7,6 @@ import { useTheme } from '../context/ThemeContext';
 import { formatGs, formatLongDate, todayISO } from '../data/mock';
 
 const actions = [
-  { icon: 'cart', label: 'Nueva venta', color: 'var(--primary)', go: '/ventas' },
-  { icon: 'cube', label: 'Nueva compra', color: 'var(--primary-soft)', go: '/compras' },
-  { icon: 'barcode', label: 'Stock', color: 'var(--accent)', go: '/stock' },
   { icon: 'stats-chart', label: 'Perfil', color: '#5C6A63', go: '/perfil' },
 ];
 
@@ -78,7 +75,6 @@ export function Dashboard() {
 
       <div style={{ display: 'flex', alignItems: 'center', padding: '24px 16px 8px' }}>
         <div style={{ flex: 1, fontSize: 16, fontWeight: 700 }}>Últimas ventas</div>
-        <button onClick={() => navigate('/ventas')} style={{ color: 'var(--primary-soft)', fontWeight: 600, fontSize: 13 }}>Ver todas</button>
       </div>
 
       <div className="list">

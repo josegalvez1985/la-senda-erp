@@ -6,10 +6,9 @@ import { ToastProvider } from './context/ToastContext';
 import { TabsLayout } from './layout/TabsLayout';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
-import { Ventas } from './pages/Ventas';
-import { Compras } from './pages/Compras';
-import { Stock } from './pages/Stock';
 import { Perfil } from './pages/Perfil';
+import { Modulo } from './pages/Modulo';
+import { menu } from './data/menu';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -41,10 +40,10 @@ export function App() {
                 }
               >
                 <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/ventas" element={<Ventas />} />
-                <Route path="/compras" element={<Compras />} />
-                <Route path="/stock" element={<Stock />} />
                 <Route path="/perfil" element={<Perfil />} />
+                {menu.flatMap((g) => g.items ?? []).filter((it) => it.to.startsWith('/m/')).map((it) => (
+                  <Route key={it.to} path={it.to} element={<Modulo />} />
+                ))}
               </Route>
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
