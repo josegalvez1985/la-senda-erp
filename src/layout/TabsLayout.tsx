@@ -23,7 +23,7 @@ export function TabsLayout() {
       {/* Sidebar — solo desktop */}
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <img src="/logo.png" alt="La Senda" />
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="La Senda" />
           La Senda
         </div>
         {tabs.map((t) => (

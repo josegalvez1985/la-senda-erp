@@ -1,7 +1,16 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
 import { Card } from '../components/Card';
+import { ChangePasswordModal } from '../components/ChangePasswordModal';
+import {
+  isBiometricAvailable,
+  isBiometricEnabled,
+  enableBiometric,
+  disableBiometric,
+} from '../lib/biometric';
 
 const items: { icon: string; label: string }[] = [
   { icon: 'person-outline', label: 'Mis datos' },
@@ -13,17 +22,49 @@ const items: { icon: string; label: string }[] = [
 ];
 
 export function Perfil() {
-  const { user, logout } = useAuth();
+  const { user, token, logout } = useAuth();
   const { theme, toggle } = useTheme();
+  const { show } = useToast();
   const navigate = useNavigate();
   const dark = theme === 'dark';
+
+  const [pwOpen, setPwOpen] = useState(false);
+  const [bioAvailable, setBioAvailable] = useState(false);
+  const [bioOn, setBioOn] = useState(false);
+  const [bioBusy, setBioBusy] = useState(false);
+
+  useEffect(() => {
+    isBiometricAvailable().then(setBioAvailable);
+    isBiometricEnabled().then(setBioOn);
+  }, []);
+
+  const toggleBio = async () => {
+    if (bioBusy) return;
+    setBioBusy(true);
+    try {
+      if (bioOn) {
+        await disableBiometric();
+        setBioOn(false);
+        show('Biometría desactivada', 'info');
+      } else {
+        if (!user || !token) throw new Error('Sesión no válida');
+        await enableBiometric({ user, token });
+        setBioOn(true);
+        show('Biometría activada en este dispositivo', 'success');
+      }
+    } catch {
+      show('No se pudo activar la biometría', 'error');
+    } finally {
+      setBioBusy(false);
+    }
+  };
 
   return (
     <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ textAlign: 'center', padding: '16px 0' }}>
         <div style={s.avatar}>{user?.name[0]}</div>
         <div style={{ fontSize: 20, fontWeight: 700, marginTop: 12 }}>{user?.name}</div>
-        <div style={{ color: 'var(--text-muted)', marginTop: 2 }}>{user?.email}</div>
+        <div style={{ color: 'var(--text-muted)', marginTop: 2 }}>{user?.username}</div>
         <div style={s.role}>
           <ion-icon name="shield-checkmark" style={{ fontSize: 12, color: 'var(--accent)' }} />
           <span>Administrador</span>
@@ -42,7 +83,38 @@ export function Perfil() {
         </button>
       </div>
 
+      {bioAvailable && (
+        <div className="theme-switch">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div className="icon-circle" style={{ width: 36, height: 36 }}>
+              <ion-icon name="finger-print" style={{ fontSize: 18, color: 'var(--primary)' }} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 500 }}>Ingreso biométrico</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                {bioOn ? 'Activado en este dispositivo' : 'Huella o reconocimiento facial'}
+              </div>
+            </div>
+          </div>
+          <button
+            className={`switch${bioOn ? ' on' : ''}`}
+            onClick={toggleBio}
+            disabled={bioBusy}
+            aria-label="Activar biometría"
+          >
+            <span className="knob" />
+          </button>
+        </div>
+      )}
+
       <Card style={{ padding: 0 }}>
+        <div style={{ ...s.row, borderBottom: '1px solid var(--border)' }} onClick={() => setPwOpen(true)}>
+          <div className="icon-circle" style={{ width: 36, height: 36 }}>
+            <ion-icon name="key-outline" style={{ fontSize: 18, color: 'var(--primary)' }} />
+          </div>
+          <span style={{ flex: 1, fontWeight: 500 }}>Cambiar contraseña</span>
+          <ion-icon name="chevron-forward" style={{ fontSize: 18, color: 'var(--text-muted)' }} />
+        </div>
         {items.map((it, i) => (
           <div key={it.label} style={{ ...s.row, borderBottom: i < items.length - 1 ? '1px solid var(--border)' : 'none' }}>
             <div className="icon-circle" style={{ width: 36, height: 36 }}>
@@ -60,6 +132,8 @@ export function Perfil() {
       </button>
 
       <div style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 11 }}>v1.0.0 · La Senda Admin</div>
+
+      <ChangePasswordModal open={pwOpen} username={user?.username ?? ''} onClose={() => setPwOpen(false)} />
     </div>
   );
 }

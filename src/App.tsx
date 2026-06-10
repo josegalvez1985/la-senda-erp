@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DataProvider } from './context/DataContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { ToastProvider } from './context/ToastContext';
 import { TabsLayout } from './layout/TabsLayout';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
@@ -25,9 +26,10 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 export function App() {
   return (
     <ThemeProvider>
+    <ToastProvider>
     <AuthProvider>
       <DataProvider>
-        <BrowserRouter>
+        <BrowserRouter basename={import.meta.env.BASE_URL}>
           <div className="app-shell">
             <Routes>
               <Route path="/login" element={<Login />} />
@@ -50,6 +52,7 @@ export function App() {
         </BrowserRouter>
       </DataProvider>
     </AuthProvider>
+    </ToastProvider>
     </ThemeProvider>
   );
 }

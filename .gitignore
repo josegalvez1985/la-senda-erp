@@ -5,3 +5,17 @@ web-build/
 *.log
 .DS_Store
 .env*
+
+# Capacitor / nativo (artefactos de build)
+android/app/build/
+android/build/
+android/.gradle/
+android/captures/
+android/local.properties
+android/app/release/
+ios/App/Pods/
+ios/App/build/
+ios/App/output/
+ios/DerivedData/
+*.xcuserstate
+.gradle/

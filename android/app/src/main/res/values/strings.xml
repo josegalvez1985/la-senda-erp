@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">La Senda</string>
+    <string name="title_activity_main">La Senda</string>
+    <string name="package_name">com.lasenda.admin</string>
+    <string name="custom_url_scheme">com.lasenda.admin</string>
+</resources>

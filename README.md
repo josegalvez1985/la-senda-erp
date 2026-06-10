@@ -25,6 +25,20 @@ npm run build     # build de producción a dist/
 npm run preview   # previsualizar el build
 ```
 
+## App móvil (Android / iOS) — Capacitor
+
+La app es instalable como app nativa mediante Capacitor.
+
+```bash
+npm run sync      # build web + copia a android/ e ios/
+npm run android   # build + abre Android Studio
+npm run ios        # build + abre Xcode (solo en macOS)
+```
+
+- **Android**: requiere Android Studio. Desde ahí: Run para emulador/dispositivo o Build > APK/AAB.
+- **iOS**: requiere macOS + Xcode. Abrí `ios/App`, seleccioná equipo de firma y Run.
+- **Biometría**: en nativo usa Face ID / Touch ID / huella del SO; en web usa WebAuthn (requiere HTTPS).
+
 ## Diseño
 - Paleta: verde bosque `#0F3D2E` + dorado `#C9A24C` (acento)
 - Tema claro/oscuro mediante CSS variables (`[data-theme]`), persistido en `localStorage`

@@ -1,29 +1,71 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
+import {
+  isBiometricAvailable,
+  isBiometricEnabled,
+  getRememberedUsername,
+  unlockBiometric,
+} from '../lib/biometric';
 
 export function Login() {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, applySession } = useAuth();
   const { theme, toggle } = useTheme();
+  const { show } = useToast();
   const dark = theme === 'dark';
-  const [email, setEmail] = useState(() => localStorage.getItem('@lasenda/remember-email') || '');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState(() => localStorage.getItem('@lasenda/remember-user') || '');
+  const [password, setPassword] = useState(() => localStorage.getItem('@lasenda/remember-pass') || '');
   const [showPass, setShowPass] = useState(false);
-  const [remember, setRemember] = useState(() => !!localStorage.getItem('@lasenda/remember-email'));
+  const [remember, setRemember] = useState(() => !!localStorage.getItem('@lasenda/remember-user'));
   const [loading, setLoading] = useState(false);
+  const [bioReady, setBioReady] = useState(false);
+  const [bioUser, setBioUser] = useState<string | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      const [available, enabled, name] = await Promise.all([
+        isBiometricAvailable(),
+        isBiometricEnabled(),
+        getRememberedUsername(),
+      ]);
+      setBioReady(available && enabled);
+      setBioUser(name);
+    })();
+  }, []);
 
   const onSubmit = async () => {
+    if (loading) return;
     setLoading(true);
-    const ok = await login(email, password);
+    const ok = await login(username.trim(), password);
     setLoading(false);
     if (ok) {
-      if (remember) localStorage.setItem('@lasenda/remember-email', email);
-      else localStorage.removeItem('@lasenda/remember-email');
+      if (remember) {
+        localStorage.setItem('@lasenda/remember-user', username.trim());
+        localStorage.setItem('@lasenda/remember-pass', password);
+      } else {
+        localStorage.removeItem('@lasenda/remember-user');
+        localStorage.removeItem('@lasenda/remember-pass');
+      }
       navigate('/dashboard', { replace: true });
     } else {
-      alert('Credenciales inválidas. Revisá email y contraseña (mín. 4 caracteres).');
+      show('Credenciales inválidas. Revisá usuario y contraseña.', 'error');
+    }
+  };
+
+  const onBiometric = async () => {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const session = await unlockBiometric();
+      applySession(session);
+      navigate('/dashboard', { replace: true });
+    } catch {
+      show('No se pudo verificar tu biometría. Intentá de nuevo o usá tu contraseña.', 'error');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -37,7 +79,7 @@ export function Login() {
       {/* Panel de marca — hero en móvil, columna izquierda en desktop */}
       <div className="login-brand">
         <div className="login-logo">
-          <img src="/logo.png" alt="La Senda" />
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="La Senda" />
         </div>
         <div className="login-title">La Senda</div>
         <div className="login-tagline">Sistema Administrativo · Librería Cristiana</div>
@@ -55,12 +97,15 @@ export function Login() {
           <div className="login-muted">Ingresá con tu cuenta para continuar.</div>
 
           <div className="login-field">
-            <ion-icon name="mail-outline" style={{ fontSize: 18, color: 'var(--text-muted)' }} />
+            <ion-icon name="person-outline" style={{ fontSize: 18, color: 'var(--text-muted)' }} />
             <input
-              placeholder="correo@lasenda.com"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Usuario"
+              type="text"
+              autoCapitalize="none"
+              autoComplete="username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && onSubmit()}
             />
           </div>
 
@@ -83,7 +128,7 @@ export function Login() {
               <span className={`check${remember ? ' on' : ''}`}>
                 {remember && <ion-icon name="checkmark" style={{ fontSize: 14, color: '#fff' }} />}
               </span>
-              Recordar mi correo
+              Recordar usuario y contraseña
             </button>
             <button className="login-forgot" type="button">¿Olvidaste tu contraseña?</button>
           </div>
@@ -92,6 +137,21 @@ export function Login() {
             {loading ? 'Ingresando…' : 'Iniciar sesión'}
             <ion-icon name="arrow-forward" style={{ fontSize: 18 }} />
           </button>
+
+          {bioReady && (
+            <>
+              <div className="login-sep"><span>o</span></div>
+              <button className="login-bio" onClick={onBiometric} disabled={loading} type="button">
+                <span className="login-bio-ring">
+                  <ion-icon name="finger-print" />
+                </span>
+                <span className="login-bio-txt">
+                  <strong>Ingresar con biometría</strong>
+                  {bioUser && <small>{bioUser}</small>}
+                </span>
+              </button>
+            </>
+          )}
 
           <div className="login-footer">© {new Date().getFullYear()} Librería La Senda</div>
         </div>

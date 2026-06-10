@@ -27,7 +27,7 @@ export function Dashboard() {
   return (
     <div style={{ paddingBottom: 32 }}>
       <div style={{ display: 'flex', alignItems: 'center', padding: '12px 16px', gap: 12 }}>
-        <img src="/logo.png" alt="La Senda" style={{ width: 48, height: 48, borderRadius: 14, objectFit: 'cover', display: 'block' }} />
+        <img src={`${import.meta.env.BASE_URL}logo.png`} alt="La Senda" style={{ width: 48, height: 48, borderRadius: 14, objectFit: 'cover', display: 'block' }} />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 22, fontWeight: 700 }}>Hola, {user?.name.split(' ')[0]} 👋</div>
           <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>{formatLongDate()}</div>

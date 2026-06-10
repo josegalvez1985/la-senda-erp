@@ -15,6 +15,21 @@
     <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
   </head>
   <body>
+    <script>
+      // Restaura la ruta guardada por 404.html (SPA fallback de GitHub Pages)
+      (function () {
+        var p = new URLSearchParams(window.location.search);
+        var route = p.get('p');
+        if (route) {
+          var q = p.get('q');
+          window.history.replaceState(
+            null,
+            '',
+            route + (q ? '?' + q : '') + window.location.hash
+          );
+        }
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

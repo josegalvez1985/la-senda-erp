@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>La Senda</title>
+    <script>
+      // SPA fallback para GitHub Pages: convierte la ruta en query y
+      // redirige a index.html, que la restaura con history.replaceState.
+      var seg = 1; // nº de segmentos de path del repo (/la-senda-erp/)
+      var l = window.location;
+      var path = l.pathname.split('/').slice(0, 1 + seg).join('/');
+      var rest = l.pathname.slice(path.length).replace(/^\//, '');
+      l.replace(
+        l.protocol + '//' + l.host + path + '/?p=/' +
+        rest + (l.search ? '&q=' + l.search.slice(1) : '') + l.hash
+      );
+    </script>
+  </head>
+  <body></body>
+</html>
