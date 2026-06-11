@@ -480,7 +480,8 @@ function ArticuloForm({
       if (f.numeric) payload[f.key] = raw === '' ? null : Number(raw);
       else payload[f.key] = raw === '' ? null : raw;
     });
-    if (foto !== undefined) payload.foto_base64 = foto === '' ? null : foto;
+    if (foto === '') payload.quitar_foto = 'S';
+    else if (foto !== undefined) payload.foto_base64 = foto;
     setSaving(true);
     try {
       await onSave(payload);
