@@ -10,7 +10,9 @@ import { BiometricAuth, BiometryError } from '@aparajita/capacitor-biometric-aut
 const CRED_KEY = '@lasenda/bio-cred';
 const SESSION_KEY = '@lasenda/bio-session';
 
-export type RememberedSession = { user: { name: string; username: string }; token: string };
+// Guardamos credenciales (no el token): el token de APEX expira, así que al
+// desbloquear con biometría hay que re-loguear para obtener uno fresco.
+export type RememberedSession = { username: string; password: string; name: string };
 
 const isNative = Capacitor.isNativePlatform();
 
@@ -68,7 +70,7 @@ export async function getRememberedUsername(): Promise<string | null> {
   const raw = await load(SESSION_KEY);
   if (!raw) return null;
   try {
-    return (JSON.parse(raw) as RememberedSession).user.username;
+    return (JSON.parse(raw) as RememberedSession).username;
   } catch {
     return null;
   }
@@ -93,7 +95,7 @@ export async function enableBiometric(session: RememberedSession): Promise<void>
     publicKey: {
       challenge: randomBytes(32),
       rp: { name: 'La Senda' },
-      user: { id: randomBytes(16), name: session.user.username, displayName: session.user.name },
+      user: { id: randomBytes(16), name: session.username, displayName: session.name },
       pubKeyCredParams: [
         { type: 'public-key', alg: -7 },
         { type: 'public-key', alg: -257 },

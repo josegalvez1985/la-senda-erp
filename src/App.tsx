@@ -12,6 +12,16 @@ import { Articulos } from './pages/ConfiguracionInicial/Articulos';
 import { Categorias } from './pages/ConfiguracionInicial/Categorias';
 import { Marcas } from './pages/ConfiguracionInicial/Marcas';
 import { Autores } from './pages/ConfiguracionInicial/Autores';
+import { Editoriales } from './pages/ConfiguracionInicial/Editoriales';
+import { Colores } from './pages/ConfiguracionInicial/Colores';
+import { CodigosBarras } from './pages/ConfiguracionInicial/CodigosBarras';
+import { Monedas } from './pages/ConfiguracionInicial/Monedas';
+import { Vendedores } from './pages/ConfiguracionInicial/Vendedores';
+import { IvaPage } from './pages/ConfiguracionInicial/Iva';
+import { FormasTransacciones } from './pages/ConfiguracionInicial/FormasTransacciones';
+import { Bancos } from './pages/ConfiguracionInicial/Bancos';
+import { Personas } from './pages/DiaADia/Personas';
+import { Timbrados } from './pages/DiaADia/Timbrados';
 import { menu } from './data/menu';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -49,7 +59,17 @@ export function App() {
                 <Route path="/m/categorias" element={<Categorias />} />
                 <Route path="/m/marcas" element={<Marcas />} />
                 <Route path="/m/autores" element={<Autores />} />
-                {menu.flatMap((g) => g.items ?? []).filter((it) => it.to.startsWith('/m/') && it.to !== '/m/articulos' && it.to !== '/m/categorias' && it.to !== '/m/marcas' && it.to !== '/m/autores').map((it) => (
+                <Route path="/m/editoriales" element={<Editoriales />} />
+                <Route path="/m/colores" element={<Colores />} />
+                <Route path="/m/codigos-barras" element={<CodigosBarras />} />
+                <Route path="/m/monedas" element={<Monedas />} />
+                <Route path="/m/vendedores" element={<Vendedores />} />
+                <Route path="/m/iva" element={<IvaPage />} />
+                <Route path="/m/formas-transacciones" element={<FormasTransacciones />} />
+                <Route path="/m/bancos" element={<Bancos />} />
+                <Route path="/m/personas" element={<Personas />} />
+                <Route path="/m/timbrados" element={<Timbrados />} />
+                {menu.flatMap((g) => g.items ?? []).filter((it) => it.to.startsWith('/m/') && !['/m/articulos', '/m/categorias', '/m/marcas', '/m/autores', '/m/editoriales', '/m/colores', '/m/codigos-barras', '/m/monedas', '/m/vendedores', '/m/iva', '/m/formas-transacciones', '/m/bancos', '/m/personas', '/m/timbrados'].includes(it.to)).map((it) => (
                   <Route key={it.to} path={it.to} element={<Modulo />} />
                 ))}
               </Route>

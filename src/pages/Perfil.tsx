@@ -22,7 +22,7 @@ const items: { icon: string; label: string }[] = [
 ];
 
 export function Perfil() {
-  const { user, token, logout } = useAuth();
+  const { user, lastCredentials, logout } = useAuth();
   const { theme, toggle } = useTheme();
   const { show } = useToast();
   const navigate = useNavigate();
@@ -47,13 +47,13 @@ export function Perfil() {
         setBioOn(false);
         show('Biometría desactivada', 'info');
       } else {
-        if (!user || !token) throw new Error('Sesión no válida');
-        await enableBiometric({ user, token });
+        if (!user || !lastCredentials) throw new Error('Volvé a iniciar sesión con tu contraseña para activar la biometría');
+        await enableBiometric({ username: lastCredentials.username, password: lastCredentials.password, name: user.name });
         setBioOn(true);
         show('Biometría activada en este dispositivo', 'success');
       }
-    } catch {
-      show('No se pudo activar la biometría', 'error');
+    } catch (e: any) {
+      show(e?.message || 'No se pudo activar la biometría', 'error');
     } finally {
       setBioBusy(false);
     }

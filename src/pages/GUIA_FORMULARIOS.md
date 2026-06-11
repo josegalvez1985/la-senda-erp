@@ -11,7 +11,7 @@ Patrón estándar para cada módulo del menú. Referencias vivas: [Configuracion
 5. **Todas** las llamadas a la API van por `authFetch` de `useAuth()` — adjunta el header `X-Token` automáticamente y, si el backend responde **401**, hace `logout()` y `RequireAuth` redirige a `/login`. No usar `fetch` crudo ni pasar el token a mano.
 6. Endpoints CRUD estándar del backend (ORDS): `listar` (GET), `crear` (POST), `actualizar/:id` (PUT), `eliminar/:id` (DELETE). El `id` va en la URL; el token siempre en el header.
 7. Acciones que aún no tienen endpoint → `toast` placeholder + `// TODO: conectar endpoint`.
-8. Enrutar en `src/App.tsx`: importar la página, agregar su `<Route path="/m/xxx" .../>` **explícito** y **excluirla del filtro genérico** (`.filter(... it.to !== '/m/xxx')`) que renderiza `<Modulo />`. Si no la excluís, se monta dos veces. Agregar la entrada en `src/data/menu.ts` si no existe.
+8. Enrutar en `src/App.tsx`: importar la página, agregar su `<Route path="/m/xxx" .../>` **explícito** y **excluirla del filtro genérico** que renderiza `<Modulo />`. El filtro usa un array: `.filter((it) => it.to.startsWith('/m/') && !['/m/articulos', …, '/m/xxx'].includes(it.to))` — sumá la ruta nueva a ese array. Si no la excluís, se monta dos veces. Agregar la entrada en `src/data/menu.ts` si no existe.
 
 ## Manejo de respuesta y errores (crear/actualizar/eliminar)
 
@@ -54,14 +54,17 @@ Estos fallos son **del backend**, no del front. Síntoma → causa:
 
 ## Campos FK (categoría, marca, autor, etc.) — selector con nombres
 
-Cuando un campo guarda solo el **código** de otro catálogo (ej. `id_categoria`), NO crear endpoint nuevo: reusar el `listar` de ese catálogo como lista de valores (LOV). Patrón (ver `Articulos.tsx`, categoría):
+Cuando un campo guarda solo el **código** de otro catálogo (ej. `id_categoria`, `id_marca`), NO crear endpoint nuevo: reusar el `listar` de ese catálogo como lista de valores (LOV). `Articulos.tsx` lo hace para sus **6 FK** (`id_categoria`, `id_marca`, `id_autor`, `id_editorial`, `id_color`, `id_iva`); `talle` queda como input de texto porque no es FK.
 
-- En la página: estado `const [categorias, setCategorias] = useState<Categoria[]>([])`, función `loadCategorias()` con `authFetch(CATEGORIAS_URL)`, llamada en el mismo `useEffect` que `load()`. Si falla, no rompe: el detalle/selector cae al código.
-- Mapa `id→nombre` con `useMemo` para mostrar el nombre en el **detalle** (`catNombre.get(id) ?? String(id)`).
-- En el **form**, el campo se renderiza como `<select className="form-input">` (no `<input>`): `<option value="">— Seleccionar —</option>` + un option por catálogo (`value={String(id)}`, texto = `descripcion`). El payload sigue mandando el número.
-- Pasar `catNombre` al `Modal` y `categorias` al `Form` como props.
+Patrón (ver `Articulos.tsx`):
 
-Una sola carga del `listar` sirve para el selector del form y para mostrar el nombre en el detalle. Mismo patrón para cada FK (marca, autor, editorial, color, iva).
+- Tipo común `type Opcion = { id: number; label: string }` y un estado único `cat` con un array por catálogo.
+- `loadCatalogos()` hace **un solo** `Promise.all` de todos los `listar` (con `authFetch`), normaliza cada listado a `{ id, label }` mapeando su id/descr propios (`id_marca`/`descripcion`, `id_autor`/`nombre`, etc.), y se llama en el mismo `useEffect` que `load()`. Cada fetch cae a `[]` si falla, sin romper.
+- `nombrePorId`: `useMemo` que arma un `Record<campoFK, Map<id,label>>` para mostrar el nombre en el **detalle** (`nombrePorId[key]?.get(id) ?? String(id)`).
+- En el **form**, un objeto `opcionesFK: Record<campoFK, Opcion[]>` decide qué campos son select: si `opcionesFK[f.key]` existe → `<select className="form-input">` con `— Seleccionar —` + un option por opción; si no → `<input>`. El payload sigue mandando el número.
+- Pasar `nombrePorId` al `Modal` y `cat` al `Form` como props.
+
+Una sola carga de cada `listar` sirve para el selector del form y para el nombre en el detalle.
 
 ## Componentes por archivo
 

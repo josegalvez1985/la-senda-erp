@@ -12,7 +12,7 @@ import {
 
 export function Login() {
   const navigate = useNavigate();
-  const { login, applySession } = useAuth();
+  const { login } = useAuth();
   const { theme, toggle } = useTheme();
   const { show } = useToast();
   const dark = theme === 'dark';
@@ -59,8 +59,13 @@ export function Login() {
     if (loading) return;
     setLoading(true);
     try {
+      // la biometría desbloquea las credenciales; el token se obtiene con un login fresco
       const session = await unlockBiometric();
-      applySession(session);
+      const ok = await login(session.username, session.password);
+      if (!ok) {
+        show('Tu sesión guardada ya no es válida. Ingresá con tu contraseña.', 'error');
+        return;
+      }
       navigate('/dashboard', { replace: true });
     } catch {
       show('No se pudo verificar tu biometría. Intentá de nuevo o usá tu contraseña.', 'error');

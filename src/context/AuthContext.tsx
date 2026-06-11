@@ -7,6 +7,8 @@ type AuthCtx = {
   token: string | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<boolean>;
+  // credenciales del último login exitoso (en memoria), para activar biometría
+  lastCredentials: { username: string; password: string } | null;
   applySession: (session: { user: User; token: string }) => void;
   logout: () => void;
   authFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
@@ -20,6 +22,7 @@ const Ctx = createContext<AuthCtx | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [lastCredentials, setLastCredentials] = useState<{ username: string; password: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -49,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const u: User = { name: inner.nombre ?? inner.username ?? username, username: inner.username ?? username };
       setUser(u);
       setToken(inner.token);
+      setLastCredentials({ username, password });
       localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
       localStorage.setItem(TOKEN_KEY, inner.token);
       return true;
@@ -80,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return res;
   };
 
-  return <Ctx.Provider value={{ user, token, loading, login, applySession, logout, authFetch }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ user, token, loading, login, lastCredentials, applySession, logout, authFetch }}>{children}</Ctx.Provider>;
 }
 
 export const useAuth = () => {

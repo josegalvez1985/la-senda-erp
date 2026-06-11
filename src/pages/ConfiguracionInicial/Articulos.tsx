@@ -10,8 +10,24 @@ const CREAR_URL = 'https://oracleapex.com/ords/lasenda/articulos/crear';
 const ACTUALIZAR_URL = 'https://oracleapex.com/ords/lasenda/articulos/actualizar';
 const ELIMINAR_URL = 'https://oracleapex.com/ords/lasenda/articulos/eliminar';
 const CATEGORIAS_URL = 'https://oracleapex.com/ords/lasenda/categorias/listar';
+const MARCAS_URL = 'https://oracleapex.com/ords/lasenda/marcas/listar';
+const AUTORES_URL = 'https://oracleapex.com/ords/lasenda/autores/listar';
+const EDITORIALES_URL = 'https://oracleapex.com/ords/lasenda/editoriales/listar';
+const COLORES_URL = 'https://oracleapex.com/ords/lasenda/colores/listar';
+const IVA_URL = 'https://oracleapex.com/ords/lasenda/iva/listar';
 
 type Categoria = { id_categoria: number; descripcion: string };
+type Opcion = { id: number; label: string };
+
+// catálogos FK del artículo: estado + cómo mapear cada listado a {id,label}
+type CatalogosState = {
+  categorias: Categoria[];
+  marcas: Opcion[];
+  autores: Opcion[];
+  editoriales: Opcion[];
+  colores: Opcion[];
+  iva: Opcion[];
+};
 
 const safeParse = (s: string) => { try { return JSON.parse(s); } catch { return null; } };
 
@@ -39,7 +55,7 @@ export function Articulos() {
   const [sel, setSel] = useState<Articulo | null>(null);
   const [form, setForm] = useState<{ mode: 'crear' | 'editar'; art: Articulo | null } | null>(null);
   const [del, setDel] = useState<Articulo | null>(null);
-  const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [cat, setCat] = useState<CatalogosState>({ categorias: [], marcas: [], autores: [], editoriales: [], colores: [], iva: [] });
 
   const load = async () => {
     setLoading(true);
@@ -56,26 +72,46 @@ export function Articulos() {
     }
   };
 
-  const loadCategorias = async () => {
-    try {
-      const res = await authFetch(CATEGORIAS_URL);
-      if (!res.ok) return;
-      const data: Categoria[] = await res.json();
-      setCategorias(Array.isArray(data) ? data : []);
-    } catch { /* el detalle/selector mostrará el código si falla */ }
+  const loadCatalogos = async () => {
+    const fetchJson = async (url: string) => {
+      try {
+        const res = await authFetch(url);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return Array.isArray(data) ? data : [];
+      } catch { return []; }
+    };
+    const [categorias, marcas, autores, editoriales, colores, iva] = await Promise.all([
+      fetchJson(CATEGORIAS_URL), fetchJson(MARCAS_URL), fetchJson(AUTORES_URL),
+      fetchJson(EDITORIALES_URL), fetchJson(COLORES_URL), fetchJson(IVA_URL),
+    ]);
+    setCat({
+      categorias,
+      marcas: marcas.map((m: any) => ({ id: m.id_marca, label: String(m.descripcion ?? '').trim() })),
+      autores: autores.map((a: any) => ({ id: a.id_autor, label: String(a.nombre ?? '').trim() })),
+      editoriales: editoriales.map((e: any) => ({ id: e.id_editorial, label: String(e.nombre ?? '').trim() })),
+      colores: colores.map((c: any) => ({ id: c.id_color, label: String(c.descripcion ?? '').trim() })),
+      iva: iva.map((i: any) => ({ id: i.id_iva, label: String(i.descripcion ?? '').trim() })),
+    });
   };
 
   useEffect(() => {
     load();
-    loadCategorias();
+    loadCatalogos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const catNombre = useMemo(() => {
-    const m = new Map<number, string>();
-    categorias.forEach((c) => m.set(c.id_categoria, c.descripcion.trim()));
-    return m;
-  }, [categorias]);
+  const nombrePorId = useMemo(() => {
+    const map = (arr: Opcion[]) => { const m = new Map<number, string>(); arr.forEach((o) => m.set(o.id, o.label)); return m; };
+    return {
+      id_categoria: (() => { const m = new Map<number, string>(); cat.categorias.forEach((c) => m.set(c.id_categoria, c.descripcion.trim())); return m; })(),
+      id_marca: map(cat.marcas),
+      id_autor: map(cat.autores),
+      id_editorial: map(cat.editoriales),
+      id_color: map(cat.colores),
+      id_iva: map(cat.iva),
+    } as Record<string, Map<number, string>>;
+  }, [cat]);
 
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -129,7 +165,7 @@ export function Articulos() {
       {sel && (
         <ArticuloModal
           art={sel}
-          catNombre={catNombre}
+          nombrePorId={nombrePorId}
           onClose={() => setSel(null)}
           onEdit={() => {
             setForm({ mode: 'editar', art: sel });
@@ -146,7 +182,7 @@ export function Articulos() {
         <ArticuloForm
           mode={form.mode}
           art={form.art}
-          categorias={categorias}
+          cat={cat}
           onClose={() => setForm(null)}
           onSave={async (payload) => {
             const crear = form.mode === 'crear';
@@ -234,13 +270,13 @@ function useEscClose(onClose: () => void) {
 
 function ArticuloModal({
   art,
-  catNombre,
+  nombrePorId,
   onClose,
   onEdit,
   onDelete,
 }: {
   art: Articulo;
-  catNombre: Map<number, string>;
+  nombrePorId: Record<string, Map<number, string>>;
   onClose: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -272,8 +308,8 @@ function ArticuloModal({
               <span className={`artm-val${art[d.key] == null ? ' empty' : ''}`}>
                 {art[d.key] == null
                   ? '—'
-                  : d.key === 'id_categoria'
-                  ? catNombre.get(art.id_categoria as number) ?? String(art[d.key])
+                  : nombrePorId[d.key]
+                  ? nombrePorId[d.key].get(art[d.key] as number) ?? String(art[d.key])
                   : String(art[d.key])}
               </span>
             </div>
@@ -307,13 +343,13 @@ const FORM_FIELDS: { key: keyof Articulo; label: string; numeric?: boolean }[] =
 function ArticuloForm({
   mode,
   art,
-  categorias,
+  cat,
   onClose,
   onSave,
 }: {
   mode: 'crear' | 'editar';
   art: Articulo | null;
-  categorias: Categoria[];
+  cat: CatalogosState;
   onClose: () => void;
   onSave: (payload: Record<string, unknown>) => Promise<void>;
 }) {
@@ -331,6 +367,16 @@ function ArticuloForm({
 
   const set = (k: string, v: string) => setVals((s) => ({ ...s, [k]: v }));
   const valid = vals.descripcion.trim().length > 0;
+
+  // opciones de cada select FK
+  const opcionesFK: Record<string, Opcion[]> = {
+    id_categoria: cat.categorias.map((c) => ({ id: c.id_categoria, label: c.descripcion.trim() })),
+    id_marca: cat.marcas,
+    id_autor: cat.autores,
+    id_editorial: cat.editoriales,
+    id_color: cat.colores,
+    id_iva: cat.iva,
+  };
 
   const submit = async () => {
     if (!valid || saving) return;
@@ -367,11 +413,11 @@ function ArticuloForm({
         {FORM_FIELDS.map((f) => (
           <div key={f.key} style={{ marginTop: 12 }}>
             <label className="cpw-label">{f.label}</label>
-            {f.key === 'id_categoria' ? (
+            {opcionesFK[f.key] ? (
               <select className="form-input" value={vals[f.key]} onChange={(e) => set(f.key, e.target.value)}>
                 <option value="">— Seleccionar —</option>
-                {categorias.map((c) => (
-                  <option key={c.id_categoria} value={String(c.id_categoria)}>{c.descripcion.trim()}</option>
+                {opcionesFK[f.key].map((o) => (
+                  <option key={o.id} value={String(o.id)}>{o.label}</option>
                 ))}
               </select>
             ) : (
