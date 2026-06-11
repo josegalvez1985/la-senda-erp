@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Capacitor } from '@capacitor/core';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -16,6 +17,7 @@ export function Login() {
   const { theme, toggle } = useTheme();
   const { show } = useToast();
   const dark = theme === 'dark';
+  const isWeb = !Capacitor.isNativePlatform();
   const [username, setUsername] = useState(() => localStorage.getItem('@lasenda/remember-user') || '');
   const [password, setPassword] = useState(() => localStorage.getItem('@lasenda/remember-pass') || '');
   const [showPass, setShowPass] = useState(false);
@@ -93,6 +95,12 @@ export function Login() {
           <li><ion-icon name="checkmark-circle" /> Inventario en tiempo real</li>
           <li><ion-icon name="checkmark-circle" /> Reportes y respaldos</li>
         </ul>
+        {isWeb && (
+          <a className="login-apk" href={`${import.meta.env.BASE_URL}la-senda.apk`} download>
+            <ion-icon name="logo-android" style={{ fontSize: 20 }} />
+            <span>Descargar app Android (APK)</span>
+          </a>
+        )}
       </div>
 
       {/* Panel del formulario */}

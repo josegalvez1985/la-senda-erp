@@ -8,7 +8,11 @@
     "preview": "vite preview",
     "sync": "npm run build && cap sync",
     "android": "npm run sync && cap open android",
-    "ios": "npm run sync && cap open ios"
+    "ios": "npm run sync && cap open ios",
+    "build:apk": "tsc && vite build",
+    "cap:sync": "npm run build:apk && cap sync android",
+    "android:debug": "npm run cap:sync && cd android && call gradlew.bat assembleDebug",
+    "apk:publish": "npm run android:debug && node scripts/copy-apk.mjs"
   },
   "dependencies": {
     "@aparajita/capacitor-biometric-auth": "^10.0.0",

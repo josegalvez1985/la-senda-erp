@@ -31,7 +31,6 @@ export const menu: MenuGroup[] = [
       { label: 'Timbrados', to: '/m/timbrados', icon: 'document-text-outline' },
       { label: 'Personas', to: '/m/personas', icon: 'person-outline' },
       { label: 'Punto de Venta', to: '/m/punto-venta', icon: 'storefront-outline' },
-      { label: 'Facturas', to: '/m/facturas', icon: 'document-attach-outline' },
     ],
   },
   {
