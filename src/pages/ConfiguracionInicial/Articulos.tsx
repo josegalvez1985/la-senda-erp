@@ -9,6 +9,7 @@ const URL = 'https://oracleapex.com/ords/lasenda/articulos/listar';
 const CREAR_URL = 'https://oracleapex.com/ords/lasenda/articulos/crear';
 const ACTUALIZAR_URL = 'https://oracleapex.com/ords/lasenda/articulos/actualizar';
 const ELIMINAR_URL = 'https://oracleapex.com/ords/lasenda/articulos/eliminar';
+const FOTO_URL = 'https://oracleapex.com/ords/lasenda/articulos/foto';
 const CATEGORIAS_URL = 'https://oracleapex.com/ords/lasenda/categorias/listar';
 const MARCAS_URL = 'https://oracleapex.com/ords/lasenda/marcas/listar';
 const AUTORES_URL = 'https://oracleapex.com/ords/lasenda/autores/listar';
@@ -30,6 +31,30 @@ type CatalogosState = {
 };
 
 const safeParse = (s: string) => { try { return JSON.parse(s); } catch { return null; } };
+
+// Redimensiona a un máx de lado largo y comprime a JPEG. Devuelve base64 sin el prefijo data:.
+const comprimirImagen = (file: File, maxLado = 1024, calidad = 0.72): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Imagen inválida'));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > height && width > maxLado) { height = Math.round((height * maxLado) / width); width = maxLado; }
+        else if (height > maxLado) { width = Math.round((width * maxLado) / height); height = maxLado; }
+        const canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return reject(new Error('Canvas no disponible'));
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', calidad).split(',')[1]);
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
 
 type Articulo = {
   id_articulo: number;
@@ -165,6 +190,7 @@ export function Articulos() {
       {sel && (
         <ArticuloModal
           art={sel}
+          authFetch={authFetch}
           nombrePorId={nombrePorId}
           onClose={() => setSel(null)}
           onEdit={() => {
@@ -183,6 +209,7 @@ export function Articulos() {
           mode={form.mode}
           art={form.art}
           cat={cat}
+          authFetch={authFetch}
           onClose={() => setForm(null)}
           onSave={async (payload) => {
             const crear = form.mode === 'crear';
@@ -270,12 +297,14 @@ function useEscClose(onClose: () => void) {
 
 function ArticuloModal({
   art,
+  authFetch,
   nombrePorId,
   onClose,
   onEdit,
   onDelete,
 }: {
   art: Articulo;
+  authFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
   nombrePorId: Record<string, Map<number, string>>;
   onClose: () => void;
   onEdit: () => void;
@@ -283,10 +312,31 @@ function ArticuloModal({
 }) {
   useEscClose(onClose);
   const activo = art.activo === 'S';
+  const [foto, setFoto] = useState<string | null>(null);
+  const [fotoErr, setFotoErr] = useState(false);
+
+  useEffect(() => {
+    let url: string | null = null;
+    let cancel = false;
+    (async () => {
+      try {
+        const res = await authFetch(`${FOTO_URL}/${art.id_articulo}`);
+        if (!res.ok) { setFotoErr(true); return; }
+        const blob = await res.blob();
+        if (!blob.type.startsWith('image/')) { setFotoErr(true); return; }
+        url = window.URL.createObjectURL(blob);
+        if (!cancel) setFoto(url);
+      } catch { setFotoErr(true); }
+    })();
+    return () => { cancel = true; if (url) window.URL.revokeObjectURL(url); };
+  }, [art.id_articulo, authFetch]);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-sheet" onClick={(e) => e.stopPropagation()}>
+        {foto && !fotoErr && (
+          <div className="artm-foto"><img src={foto} alt={art.descripcion.trim()} /></div>
+        )}
         <div className="artm-head">
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="artm-title">{art.descripcion.trim()}</div>
@@ -344,12 +394,14 @@ function ArticuloForm({
   mode,
   art,
   cat,
+  authFetch,
   onClose,
   onSave,
 }: {
   mode: 'crear' | 'editar';
   art: Articulo | null;
   cat: CatalogosState;
+  authFetch: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
   onClose: () => void;
   onSave: (payload: Record<string, unknown>) => Promise<void>;
 }) {
@@ -364,6 +416,46 @@ function ArticuloForm({
   });
   const [activo, setActivo] = useState(art ? art.activo === 'S' : true);
   const [saving, setSaving] = useState(false);
+  // foto: undefined = sin cambios; '' = quitar; string = nueva imagen base64
+  const [foto, setFoto] = useState<string | undefined>(undefined);
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
+  const [fotoBusy, setFotoBusy] = useState(false);
+
+  // al editar, cargar la foto actual como preview
+  useEffect(() => {
+    if (mode !== 'editar' || !art) return;
+    let url: string | null = null;
+    let cancel = false;
+    (async () => {
+      try {
+        const res = await authFetch(`${FOTO_URL}/${art.id_articulo}`);
+        if (!res.ok) return;
+        const blob = await res.blob();
+        if (!blob.type.startsWith('image/')) return;
+        url = window.URL.createObjectURL(blob);
+        if (!cancel) setFotoPreview(url);
+      } catch { /* sin foto */ }
+    })();
+    return () => { cancel = true; if (url) window.URL.revokeObjectURL(url); };
+  }, [mode, art, authFetch]);
+
+  const onPickFoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setFotoBusy(true);
+    try {
+      const b64 = await comprimirImagen(file);
+      setFoto(b64);
+      setFotoPreview(`data:image/jpeg;base64,${b64}`);
+    } catch {
+      /* imagen inválida */
+    } finally {
+      setFotoBusy(false);
+    }
+  };
+
+  const quitarFoto = () => { setFoto(''); setFotoPreview(null); };
 
   const set = (k: string, v: string) => setVals((s) => ({ ...s, [k]: v }));
   const valid = vals.descripcion.trim().length > 0;
@@ -386,6 +478,7 @@ function ArticuloForm({
       if (f.numeric) payload[f.key] = raw === '' ? null : Number(raw);
       else payload[f.key] = raw === '' ? null : raw;
     });
+    if (foto !== undefined) payload.foto_base64 = foto === '' ? null : foto;
     setSaving(true);
     try {
       await onSave(payload);
@@ -408,6 +501,26 @@ function ArticuloForm({
           <button onClick={onClose} aria-label="Cerrar">
             <ion-icon name="close" style={{ fontSize: 24, color: 'var(--text-muted)' }} />
           </button>
+        </div>
+
+        <div style={{ marginTop: 12 }}>
+          <label className="cpw-label">Foto</label>
+          <div className="artf-foto">
+            {fotoPreview ? (
+              <div className="artf-foto-prev">
+                <img src={fotoPreview} alt="Foto del artículo" />
+                <button type="button" className="artf-foto-x" onClick={quitarFoto} aria-label="Quitar foto">
+                  <ion-icon name="close" />
+                </button>
+              </div>
+            ) : (
+              <label className="artf-foto-add">
+                <input type="file" accept="image/*" capture="environment" onChange={onPickFoto} hidden />
+                <ion-icon name={fotoBusy ? 'hourglass-outline' : 'camera-outline'} />
+                <span>{fotoBusy ? 'Procesando…' : 'Tomar / elegir foto'}</span>
+              </label>
+            )}
+          </div>
         </div>
 
         {FORM_FIELDS.map((f) => (

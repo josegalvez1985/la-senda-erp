@@ -304,6 +304,35 @@ a { color: inherit; text-decoration: none; }
 .art-retry ion-icon { font-size: 16px; }
 
 /* Modal detalle de artículo */
+.artm-foto {
+  margin: -4px 0 16px; border-radius: 14px; overflow: hidden;
+  background: color-mix(in srgb, var(--text-muted) 8%, transparent);
+  aspect-ratio: 4 / 3;
+}
+.artm-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Campo de foto en el formulario */
+.artf-foto { margin-top: 6px; }
+.artf-foto-add {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; aspect-ratio: 4 / 3; cursor: pointer;
+  border: 2px dashed var(--border); border-radius: 14px;
+  color: var(--text-muted); background: color-mix(in srgb, var(--text-muted) 5%, transparent);
+  transition: border-color .15s, color .15s;
+}
+.artf-foto-add:hover { border-color: var(--accent); color: var(--accent); }
+.artf-foto-add ion-icon { font-size: 34px; }
+.artf-foto-add span { font-size: 13px; font-weight: 600; }
+.artf-foto-prev { position: relative; border-radius: 14px; overflow: hidden; aspect-ratio: 4 / 3; }
+.artf-foto-prev img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.artf-foto-x {
+  position: absolute; top: 8px; right: 8px;
+  width: 32px; height: 32px; border-radius: 999px; border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.55); color: #fff; font-size: 18px;
+}
+.artf-foto-x ion-icon { font-size: 20px; }
+
 .artm-head {
   display: flex; align-items: center; gap: 12px;
   padding-bottom: 16px; margin-bottom: 8px;
