@@ -32,8 +32,9 @@ type CatalogosState = {
 
 const safeParse = (s: string) => { try { return JSON.parse(s); } catch { return null; } };
 
-// Redimensiona a un máx de lado largo y comprime a JPEG. Devuelve base64 sin el prefijo data:.
-const comprimirImagen = (file: File, maxLado = 1024, calidad = 0.72): Promise<string> =>
+// Recorta al cuadrado central, redimensiona a `lado`px y comprime a JPEG.
+// Devuelve base64 sin el prefijo data:.
+const comprimirImagen = (file: File, lado = 1024, calidad = 0.72): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
@@ -41,14 +42,15 @@ const comprimirImagen = (file: File, maxLado = 1024, calidad = 0.72): Promise<st
       const img = new Image();
       img.onerror = () => reject(new Error('Imagen inválida'));
       img.onload = () => {
-        let { width, height } = img;
-        if (width > height && width > maxLado) { height = Math.round((height * maxLado) / width); width = maxLado; }
-        else if (height > maxLado) { width = Math.round((width * maxLado) / height); height = maxLado; }
+        const min = Math.min(img.width, img.height);
+        const sx = (img.width - min) / 2;
+        const sy = (img.height - min) / 2;
+        const out = Math.min(lado, min);
         const canvas = document.createElement('canvas');
-        canvas.width = width; canvas.height = height;
+        canvas.width = out; canvas.height = out;
         const ctx = canvas.getContext('2d');
         if (!ctx) return reject(new Error('Canvas no disponible'));
-        ctx.drawImage(img, 0, 0, width, height);
+        ctx.drawImage(img, sx, sy, min, min, 0, 0, out, out);
         resolve(canvas.toDataURL('image/jpeg', calidad).split(',')[1]);
       };
       img.src = reader.result as string;
