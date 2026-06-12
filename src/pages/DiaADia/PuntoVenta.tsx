@@ -6,6 +6,42 @@ import { useToast } from '../../context/ToastContext';
 
 const BASE = 'https://oracleapex.com/ords/lasenda';
 const CREAR_VENTA_URL = `${BASE}/ventas/crear-completa`;
+const FOTO_URL = `${BASE}/articulos/foto`;
+
+// caché de fotos por artículo (object URL o null si no tiene/ falló)
+const fotoCache = new Map<number, string | null>();
+
+function TileFoto({ id, alt }: { id: number; alt: string }) {
+  const { authFetch } = useAuth();
+  const [url, setUrl] = useState<string | null>(() => fotoCache.get(id) ?? null);
+  const [listo, setListo] = useState(() => fotoCache.has(id));
+
+  useEffect(() => {
+    if (fotoCache.has(id)) { setUrl(fotoCache.get(id) ?? null); setListo(true); return; }
+    let cancel = false;
+    (async () => {
+      try {
+        const res = await authFetch(`${FOTO_URL}/${id}`);
+        if (!res.ok) throw new Error();
+        const blob = await res.blob();
+        if (!blob.type.startsWith('image/')) throw new Error();
+        const u = URL.createObjectURL(blob);
+        fotoCache.set(id, u);
+        if (!cancel) { setUrl(u); setListo(true); }
+      } catch {
+        fotoCache.set(id, null);
+        if (!cancel) { setUrl(null); setListo(true); }
+      }
+    })();
+    return () => { cancel = true; };
+  }, [id, authFetch]);
+
+  return (
+    <span className="pos-tile-foto">
+      {url ? <img src={url} alt={alt} /> : <ion-icon name={listo ? 'image-outline' : 'ellipse-outline'} />}
+    </span>
+  );
+}
 
 const safeParse = (s: string) => { try { return JSON.parse(s); } catch { return null; } };
 const fmt = (n: number) => new Intl.NumberFormat('es-PY', { maximumFractionDigits: 2 }).format(n || 0);
@@ -185,6 +221,7 @@ export function PuntoVenta() {
             return (
               <button key={a.id_articulo} className={`pos-tile${cant ? ' in' : ''}`} onClick={() => addArticulo(a)}>
                 {cant > 0 && <span className="pos-tile-badge">{cant}</span>}
+                <TileFoto id={a.id_articulo} alt={a.descripcion} />
                 <span className="pos-tile-name">{a.descripcion}</span>
                 <span className="pos-tile-price">₲ {fmt(precios.get(a.id_articulo) ?? 0)}</span>
                 <span className="pos-tile-add"><ion-icon name="add" /></span>

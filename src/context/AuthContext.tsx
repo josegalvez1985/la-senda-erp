@@ -37,7 +37,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (username: string, password: string) => {
     try {
-      const res = await fetch(LOGIN_URL, {
+      const loginUrl = import.meta.env.DEV ? LOGIN_URL.replace('https://oracleapex.com', '') : LOGIN_URL;
+      const res = await fetch(loginUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
@@ -75,11 +76,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(TOKEN_KEY);
   };
 
-  // fetch que adjunta el token y cierra sesión si el backend responde 401
+  // fetch que adjunta el token y cierra sesión si el backend responde 401.
+  // En dev (Vite) reescribe el host absoluto al proxy local para evitar CORS.
   const authFetch = async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const headers = new Headers(init.headers);
     if (token) headers.set('X-Token', token);
-    const res = await fetch(input, { ...init, headers });
+    let target = input;
+    if (import.meta.env.DEV && typeof input === 'string') {
+      target = input.replace('https://oracleapex.com', '');
+    }
+    const res = await fetch(target, { ...init, headers });
     if (res.status === 401) logout();
     return res;
   };

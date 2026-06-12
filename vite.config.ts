@@ -8,5 +8,14 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') },
   },
-  server: { port: 5173 },
+  server: {
+    port: 5173,
+    proxy: {
+      '/ords': {
+        target: 'https://oracleapex.com',
+        changeOrigin: true,
+        secure: true,
+      },
+    },
+  },
 });

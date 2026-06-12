@@ -1,24 +1,79 @@
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/Card';
-import { Badge } from '../components/Badge';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { useTheme } from '../context/ThemeContext';
 import { formatGs, formatLongDate, todayISO } from '../data/mock';
+
+const BASE = 'https://oracleapex.com/ords/lasenda';
+const num = (s: any) => { const n = Number(String(s ?? '').replace(/[^\d.-]/g, '')); return isNaN(n) ? 0 : n; };
+
+// formatea una fecha ISO (YYYY-MM-DD) de forma segura; si es inválida devuelve el texto original
+const fechaLarga = (iso: string) => {
+  const d = new Date(`${iso}T00:00:00`);
+  return isNaN(d.getTime()) ? (iso || '—') : formatLongDate(d);
+};
+
+type DiaVenta = { fecha: string; total: number; cantidad: number };
+type Venta = { id: string; fecha: string; total: number; cliente: string };
 
 const actions = [
   { icon: 'stats-chart', label: 'Perfil', color: '#5C6A63', go: '/perfil' },
 ];
 
 export function Dashboard() {
-  const { user } = useAuth();
-  const { products, sales } = useData();
+  const { user, authFetch } = useAuth();
+  const { products } = useData();
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const dark = theme === 'dark';
 
-  const today = sales.filter((s) => s.date === todayISO());
-  const totalHoy = today.reduce((a, b) => a + b.total, 0);
+  const [porDia, setPorDia] = useState<DiaVenta[]>([]);
+  const [ventas, setVentas] = useState<Venta[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let activo = true;
+    (async () => {
+      const j = async (path: string): Promise<any[]> => {
+        try {
+          const r = await authFetch(`${BASE}/${path}`);
+          if (!r.ok) return [];
+          const d = await r.json();
+          return Array.isArray(d) ? d : [];
+        } catch { return []; }
+      };
+      const [dias, cabs] = await Promise.all([j('ventas/por-dia'), j('ventascab/listar')]);
+      if (!activo) return;
+      setPorDia(dias.map((d: any) => ({
+        fecha: String(d.fecha ?? '').slice(0, 10),
+        total: num(d.total),
+        cantidad: num(d.cantidad),
+      })));
+      setVentas(cabs.map((c: any) => ({
+        id: String(c.id_venta ?? ''),
+        fecha: String(c.fecha ?? '').slice(0, 10),
+        total: num(c.total),
+        cliente: String(c.cliente ?? '').trim() || 'Sin cliente',
+      })));
+      setLoading(false);
+    })();
+    return () => { activo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const hoy = useMemo(() => porDia.find((d) => d.fecha === todayISO()), [porDia]);
+  const totalHoy = hoy?.total ?? 0;
+  const transHoy = hoy?.cantidad ?? 0;
+  const ultimasVentas = useMemo(
+    () => [...ventas].sort((a, b) => (a.fecha < b.fecha ? 1 : a.fecha > b.fecha ? -1 : (a.id < b.id ? 1 : -1))).slice(0, 4),
+    [ventas]
+  );
+  const ultimosDias = useMemo(
+    () => [...porDia].sort((a, b) => (a.fecha < b.fecha ? 1 : -1)).slice(0, 5),
+    [porDia]
+  );
   const bajoStock = products.filter((p) => p.stock <= p.minStock).length;
 
   return (
@@ -41,10 +96,10 @@ export function Dashboard() {
         <div style={{ display: 'flex', alignItems: 'center', marginTop: 12, gap: 10 }}>
           <span style={s.heroChip}>
             <ion-icon name="receipt-outline" style={{ fontSize: 14, color: 'var(--accent)' }} />
-            <span style={{ color: 'var(--accent)', fontWeight: 600, fontSize: 12 }}>{today.length}</span>
+            <span style={{ color: 'var(--accent)', fontWeight: 600, fontSize: 12 }}>{transHoy}</span>
           </span>
           <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
-            {today.length === 1 ? 'transacción hoy' : 'transacciones hoy'}
+            {transHoy === 1 ? 'transacción hoy' : 'transacciones hoy'}
           </span>
         </div>
       </div>
@@ -74,22 +129,54 @@ export function Dashboard() {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', padding: '24px 16px 8px' }}>
+        <div style={{ flex: 1, fontSize: 16, fontWeight: 700 }}>Ventas por día</div>
+      </div>
+
+      <div className="list">
+        {loading ? (
+          <Card style={{ paddingTop: 12, paddingBottom: 12 }}>
+            <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Cargando…</div>
+          </Card>
+        ) : ultimosDias.length === 0 ? (
+          <Card style={{ paddingTop: 12, paddingBottom: 12 }}>
+            <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Sin ventas registradas.</div>
+          </Card>
+        ) : ultimosDias.map((d) => (
+          <Card key={d.fecha} style={{ paddingTop: 12, paddingBottom: 12 }}>
+            <div className="list-row">
+              <div className="icon-circle"><ion-icon name="calendar-outline" style={{ fontSize: 18, color: 'var(--primary)' }} /></div>
+              <div style={{ flex: 1, marginLeft: 12 }}>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{fechaLarga(d.fecha)}</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 2 }}>{d.cantidad} {d.cantidad === 1 ? 'venta' : 'ventas'}</div>
+              </div>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>{formatGs(d.total)}</div>
+            </div>
+          </Card>
+        ))}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', padding: '24px 16px 8px' }}>
         <div style={{ flex: 1, fontSize: 16, fontWeight: 700 }}>Últimas ventas</div>
       </div>
 
       <div className="list">
-        {sales.slice(0, 4).map((sale) => (
-          <Card key={sale.id} style={{ paddingTop: 12, paddingBottom: 12 }}>
+        {loading ? (
+          <Card style={{ paddingTop: 12, paddingBottom: 12 }}>
+            <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Cargando…</div>
+          </Card>
+        ) : ultimasVentas.length === 0 ? (
+          <Card style={{ paddingTop: 12, paddingBottom: 12 }}>
+            <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>Sin ventas registradas.</div>
+          </Card>
+        ) : ultimasVentas.map((v, i) => (
+          <Card key={v.id || `v-${i}`} style={{ paddingTop: 12, paddingBottom: 12 }}>
             <div className="list-row">
               <div className="icon-circle"><ion-icon name="receipt-outline" style={{ fontSize: 18, color: 'var(--primary)' }} /></div>
               <div style={{ flex: 1, marginLeft: 12 }}>
-                <div style={{ fontWeight: 600, fontSize: 14 }}>{sale.customer}</div>
-                <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 2 }}>{sale.id} · {sale.items} ítems</div>
+                <div style={{ fontWeight: 600, fontSize: 14 }}>{v.cliente}</div>
+                <div style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 2 }}>Venta {v.id} · {fechaLarga(v.fecha)}</div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{formatGs(sale.total)}</div>
-                <Badge label={sale.status} tone={sale.status === 'Pagado' ? 'success' : 'warning'} />
-              </div>
+              <div style={{ fontWeight: 700, fontSize: 14 }}>{formatGs(v.total)}</div>
             </div>
           </Card>
         ))}
