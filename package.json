@@ -1,6 +1,6 @@
 {
   "name": "la-senda-admin",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -19,13 +19,18 @@
     "@capacitor/android": "^8.4.0",
     "@capacitor/cli": "^8.4.0",
     "@capacitor/core": "^8.4.0",
+    "@capacitor/filesystem": "^8.1.2",
     "@capacitor/ios": "^8.4.0",
     "@capacitor/preferences": "^8.0.1",
+    "@capacitor/share": "^8.0.1",
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "react": "18.2.0",
     "react-dom": "18.2.0",
-    "react-router-dom": "^7.17.0"
+    "react-router-dom": "^7.17.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^25.9.2",

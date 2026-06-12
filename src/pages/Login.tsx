@@ -166,7 +166,10 @@ export function Login() {
             </>
           )}
 
-          <div className="login-footer">© {new Date().getFullYear()} Librería La Senda</div>
+          <div className="login-footer">
+            © {new Date().getFullYear()} Librería La Senda
+            <span className="login-version">v{__APP_VERSION__} · {__BUILD_DATE__}</span>
+          </div>
         </div>
       </div>
     </div>

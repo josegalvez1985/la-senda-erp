@@ -145,3 +145,12 @@ export function Modulo() {
 
 Para el detalle, form y confirmación, copiar `ArticuloModal`, `ArticuloForm`, `ConfirmDelete` y `useEscClose` de [Articulos.tsx](ConfiguracionInicial/Articulos.tsx), renombrando tipos/campos.
 ```
+
+## Informes y exportación (PDF / Excel)
+
+Para páginas de **Resultados** que no son CRUD sino informes (ej. [Resultados/VentasGeneral.tsx](Resultados/VentasGeneral.tsx)):
+
+- Filtro de rango con dos `<input type="date">` (`desde`/`hasta`); por defecto `desde = 1° del mes`, `hasta = hoy` (fecha **local**, `toLocaleDateString('en-CA')`, no UTC).
+- Normalizar las fechas del backend con un helper `toISO()` (acepta ISO con hora y `DD/MM/YYYY`) **sin** pasar por `new Date().toISOString()` para no desplazar el día por zona horaria.
+- Export vía [lib/export.ts](../lib/export.ts): `exportarPDF({ nombre, titulo, subtitulo, columnas, filas, pie })` y `exportarExcel({ nombre, columnas, filas })`. `Columna = { header, key, align? }`. Web descarga directo; APK guarda en `Cache` y abre `Share`.
+- Plugins nativos: requiere `@capacitor/filesystem` y `@capacitor/share`. Tras agregarlos, correr `npx cap sync android` antes de compilar el APK.

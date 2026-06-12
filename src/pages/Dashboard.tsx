@@ -1,13 +1,25 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../components/Card';
+import { VentasChart } from '../components/VentasChart';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { useTheme } from '../context/ThemeContext';
-import { formatGs, formatLongDate, todayISO } from '../data/mock';
+import { formatGs, formatLongDate } from '../data/mock';
 
 const BASE = 'https://oracleapex.com/ords/lasenda';
 const num = (s: any) => { const n = Number(String(s ?? '').replace(/[^\d.-]/g, '')); return isNaN(n) ? 0 : n; };
+
+// normaliza una fecha del backend a YYYY-MM-DD sin desplazar por zona horaria.
+// Toma solo la parte de fecha del string (ISO o DD/MM/YYYY); nunca usa Date/UTC.
+const toISO = (v: any): string => {
+  const s = String(v ?? '').trim();
+  if (!s) return '';
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10); // 2026-06-11T00:00:00Z -> 2026-06-11
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);     // 11/06/2026 -> 2026-06-11
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  return '';
+};
 
 // formatea una fecha ISO (YYYY-MM-DD) de forma segura; si es inválida devuelve el texto original
 const fechaLarga = (iso: string) => {
@@ -31,6 +43,7 @@ export function Dashboard() {
 
   const [porDia, setPorDia] = useState<DiaVenta[]>([]);
   const [ventas, setVentas] = useState<Venta[]>([]);
+  const [totalArticulos, setTotalArticulos] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -44,26 +57,47 @@ export function Dashboard() {
           return Array.isArray(d) ? d : [];
         } catch { return []; }
       };
-      const [dias, cabs] = await Promise.all([j('ventas/por-dia'), j('ventascab/listar')]);
+      const [cabs, pers, arts] = await Promise.all([
+        j('ventas-cabecera/listar'), j('personas/listar'), j('articulos/listar'),
+      ]);
       if (!activo) return;
-      setPorDia(dias.map((d: any) => ({
-        fecha: String(d.fecha ?? '').slice(0, 10),
-        total: num(d.total),
-        cantidad: num(d.cantidad),
-      })));
-      setVentas(cabs.map((c: any) => ({
-        id: String(c.id_venta ?? ''),
-        fecha: String(c.fecha ?? '').slice(0, 10),
-        total: num(c.total),
-        cliente: String(c.cliente ?? '').trim() || 'Sin cliente',
-      })));
+      setTotalArticulos(arts.length);
+
+      // id_persona -> nombre del cliente
+      const nombrePersona = new Map<number, string>();
+      pers.forEach((p: any) => nombrePersona.set(Number(p.id_persona), String(p.nombre ?? '').trim()));
+
+      // total por factura calculado desde el detalle (cantidad×precio − descuento)
+      const totales = await Promise.all(cabs.map(async (c: any) => {
+        const lineas = await j(`ventas-detalle/por-factura/${c.id_factura}`);
+        return lineas.reduce((s, l: any) => s + num(l.cantidad) * num(l.precio) - num(l.descuento), 0);
+      }));
+      if (!activo) return;
+
+      const ventasMap: Venta[] = cabs.map((c: any, i: number) => ({
+        id: String(c.id_factura ?? ''),
+        fecha: toISO(c.fec_comprobante),
+        total: totales[i],
+        cliente: nombrePersona.get(Number(c.id_persona)) || `Cliente #${c.id_persona ?? '?'}`,
+      }));
+      setVentas(ventasMap);
+
+      // ventas por día derivadas de las cabeceras (agrupadas por fecha)
+      const agg = new Map<string, { total: number; cantidad: number }>();
+      ventasMap.forEach((v) => {
+        if (!v.fecha) return;
+        const prev = agg.get(v.fecha) ?? { total: 0, cantidad: 0 };
+        agg.set(v.fecha, { total: prev.total + v.total, cantidad: prev.cantidad + 1 });
+      });
+      setPorDia(Array.from(agg, ([fecha, x]) => ({ fecha, total: x.total, cantidad: x.cantidad })));
       setLoading(false);
     })();
     return () => { activo = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const hoy = useMemo(() => porDia.find((d) => d.fecha === todayISO()), [porDia]);
+  const hoyLocal = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD en zona local
+  const hoy = useMemo(() => porDia.find((d) => d.fecha === hoyLocal), [porDia, hoyLocal]);
   const totalHoy = hoy?.total ?? 0;
   const transHoy = hoy?.cantidad ?? 0;
   const ultimasVentas = useMemo(
@@ -89,6 +123,8 @@ export function Dashboard() {
           <span style={{ fontWeight: 600, fontSize: 13 }}>{dark ? 'Claro' : 'Oscuro'}</span>
         </button>
       </div>
+
+      <VentasChart ventas={ventas} />
 
       <div style={s.hero}>
         <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1.5 }}>Ventas de hoy</div>
@@ -118,7 +154,7 @@ export function Dashboard() {
       <div style={{ display: 'flex', gap: 12, padding: '16px 16px 0' }}>
         <Card style={{ flex: 1 }}>
           <div style={s.kpiLabel}>Productos</div>
-          <div style={{ fontSize: 28, fontWeight: 700, marginTop: 4 }}>{products.length}</div>
+          <div style={{ fontSize: 28, fontWeight: 700, marginTop: 4 }}>{totalArticulos ?? '—'}</div>
           <div style={s.kpiHint}>en catálogo</div>
         </Card>
         <Card style={{ flex: 1 }}>

@@ -5,7 +5,6 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 
 const BASE = 'https://oracleapex.com/ords/lasenda';
-const CREAR_VENTA_URL = `${BASE}/ventas/crear-completa`;
 const FOTO_URL = `${BASE}/articulos/foto`;
 
 // caché de fotos por artículo (object URL o null si no tiene/ falló)
@@ -101,7 +100,7 @@ export function PuntoVenta() {
       j('formacobro/listar', 'Formas de pago'),
       j('bancos/listar', 'Bancos'),
       j('iva/listar', 'IVA'),
-      j('ventascab/listar', 'Ventas previas'),
+      j('ventas-cabecera/listar', 'Ventas previas'),
     ]);
 
     setArticulos(arts.map((a: any) => ({
@@ -266,24 +265,12 @@ export function PuntoVenta() {
           userName={user?.name ?? ''}
           onClose={() => setCobrar(false)}
           onConfirm={async (cab, pagos) => {
-            const detalle = carrito.map((l) => ({
-              id_articulo: l.id_articulo, cantidad: l.cantidad, precio: l.precio,
-              id_iva: l.id_iva || null, descuento: l.descuento || null,
-            }));
-            const cobros = pagos.map((p) => ({
-              id_forma: p.id_forma, id_banco: p.id_banco, total: p.total,
-              observacion: p.observacion.trim() || null,
-            }));
-            const payload = {
-              cabecera: JSON.stringify(cab),
-              detalle: JSON.stringify(detalle),
-              cobros: JSON.stringify(cobros),
-            };
-            try {
-              const res = await authFetch(CREAR_VENTA_URL, {
+            // POST autenticado que devuelve el cuerpo ya desempaquetado de `resultado`
+            const post = async (path: string, body: Record<string, unknown>) => {
+              const res = await authFetch(`${BASE}/${path}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
+                body: JSON.stringify(body),
               });
               const text = await res.text();
               let data: any = null;
@@ -292,11 +279,42 @@ export function PuntoVenta() {
               if (!res.ok || (inner && String(inner.ok) === 'false')) {
                 throw new Error(inner?.msg || inner?.mensaje || data?.message || text || `HTTP ${res.status}`);
               }
-              show(`Venta registrada (factura #${inner?.id_factura ?? ''})`, 'success');
+              return inner ?? {};
+            };
+            try {
+              // 1) cabecera
+              const cabRes = await post('ventas-cabecera/crear', cab);
+              const idFactura = num(cabRes.id_factura ?? cabRes.id);
+              if (!idFactura) throw new Error('El backend no devolvió id_factura');
+
+              // 2) detalle (una línea por artículo)
+              for (const l of carrito) {
+                await post('ventas-detalle/crear', {
+                  id_factura: idFactura,
+                  id_articulo: l.id_articulo,
+                  cantidad: l.cantidad,
+                  precio: l.precio,
+                  id_iva: l.id_iva || null,
+                  descuento: l.descuento || null,
+                });
+              }
+
+              // 3) cobros
+              for (const p of pagos) {
+                await post('ventas-cobros/crear', {
+                  id_factura: idFactura,
+                  id_forma: p.id_forma,
+                  id_banco: p.id_banco,
+                  total: p.total,
+                  observacion: p.observacion.trim() || null,
+                });
+              }
+
+              show(`Venta registrada (factura #${idFactura})`, 'success');
               nuevaVenta();
               cargar();
             } catch (e: any) {
-              console.error('[pos] error venta', { payload, error: e });
+              console.error('[pos] error venta', e);
               const detail = e?.message === 'Failed to fetch' ? 'red/CORS — revisá Network.' : (e?.message ?? 'error');
               show(`No se pudo registrar la venta: ${detail}`, 'error');
               throw e;

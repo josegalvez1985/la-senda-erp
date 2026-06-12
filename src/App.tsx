@@ -25,6 +25,7 @@ import { Timbrados } from './pages/DiaADia/Timbrados';
 import { PreciosVentas } from './pages/DiaADia/PreciosVentas';
 import { Inventarios } from './pages/DiaADia/Inventarios';
 import { PuntoVenta } from './pages/DiaADia/PuntoVenta';
+import { VentasGeneral } from './pages/Resultados/VentasGeneral';
 import { menu } from './data/menu';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -75,7 +76,8 @@ export function App() {
                 <Route path="/m/precios-ventas" element={<PreciosVentas />} />
                 <Route path="/m/inventarios" element={<Inventarios />} />
                 <Route path="/m/punto-venta" element={<PuntoVenta />} />
-                {menu.flatMap((g) => g.items ?? []).filter((it) => it.to.startsWith('/m/') && !['/m/articulos', '/m/categorias', '/m/marcas', '/m/autores', '/m/editoriales', '/m/colores', '/m/codigos-barras', '/m/monedas', '/m/vendedores', '/m/iva', '/m/formas-transacciones', '/m/bancos', '/m/personas', '/m/timbrados', '/m/precios-ventas', '/m/inventarios', '/m/punto-venta'].includes(it.to)).map((it) => (
+                <Route path="/m/ventas-general" element={<VentasGeneral />} />
+                {menu.flatMap((g) => g.items ?? []).filter((it) => it.to.startsWith('/m/') && !['/m/articulos', '/m/categorias', '/m/marcas', '/m/autores', '/m/editoriales', '/m/colores', '/m/codigos-barras', '/m/monedas', '/m/vendedores', '/m/iva', '/m/formas-transacciones', '/m/bancos', '/m/personas', '/m/timbrados', '/m/precios-ventas', '/m/inventarios', '/m/punto-venta', '/m/ventas-general'].includes(it.to)).map((it) => (
                   <Route key={it.to} path={it.to} element={<Modulo />} />
                 ))}
               </Route>
