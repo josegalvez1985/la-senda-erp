@@ -26,6 +26,9 @@ import { PreciosVentas } from './pages/DiaADia/PreciosVentas';
 import { Inventarios } from './pages/DiaADia/Inventarios';
 import { PuntoVenta } from './pages/DiaADia/PuntoVenta';
 import { VentasGeneral } from './pages/Resultados/VentasGeneral';
+import { ArticulosReporte } from './pages/Resultados/ArticulosReporte';
+import { VentasDetalladas } from './pages/Resultados/VentasDetalladas';
+import { VentasPorArticulo } from './pages/Resultados/VentasPorArticulo';
 import { menu } from './data/menu';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -77,7 +80,10 @@ export function App() {
                 <Route path="/m/inventarios" element={<Inventarios />} />
                 <Route path="/m/punto-venta" element={<PuntoVenta />} />
                 <Route path="/m/ventas-general" element={<VentasGeneral />} />
-                {menu.flatMap((g) => g.items ?? []).filter((it) => it.to.startsWith('/m/') && !['/m/articulos', '/m/categorias', '/m/marcas', '/m/autores', '/m/editoriales', '/m/colores', '/m/codigos-barras', '/m/monedas', '/m/vendedores', '/m/iva', '/m/formas-transacciones', '/m/bancos', '/m/personas', '/m/timbrados', '/m/precios-ventas', '/m/inventarios', '/m/punto-venta', '/m/ventas-general'].includes(it.to)).map((it) => (
+                <Route path="/m/articulos-reporte" element={<ArticulosReporte />} />
+                <Route path="/m/ventas-detalladas" element={<VentasDetalladas />} />
+                <Route path="/m/ventas-por-articulo" element={<VentasPorArticulo />} />
+                {menu.flatMap((g) => g.items ?? []).filter((it) => it.to.startsWith('/m/') && !['/m/articulos', '/m/categorias', '/m/marcas', '/m/autores', '/m/editoriales', '/m/colores', '/m/codigos-barras', '/m/monedas', '/m/vendedores', '/m/iva', '/m/formas-transacciones', '/m/bancos', '/m/personas', '/m/timbrados', '/m/precios-ventas', '/m/inventarios', '/m/punto-venta', '/m/ventas-general', '/m/articulos-reporte', '/m/ventas-detalladas', '/m/ventas-por-articulo'].includes(it.to)).map((it) => (
                   <Route key={it.to} path={it.to} element={<Modulo />} />
                 ))}
               </Route>

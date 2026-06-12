@@ -38,6 +38,9 @@ export const menu: MenuGroup[] = [
     icon: 'bar-chart-outline',
     items: [
       { label: 'Ventas General', to: '/m/ventas-general', icon: 'trending-up-outline' },
+      { label: 'Artículos', to: '/m/articulos-reporte', icon: 'pricetag-outline' },
+      { label: 'Ventas por Cliente / Artículo', to: '/m/ventas-detalladas', icon: 'podium-outline' },
+      { label: 'Ventas por Artículo', to: '/m/ventas-por-articulo', icon: 'cube-outline' },
     ],
   },
   {
