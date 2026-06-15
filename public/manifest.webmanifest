@@ -1,0 +1,15 @@
+{
+  "name": "La Senda · Admin",
+  "short_name": "La Senda",
+  "description": "Sistema Administrativo · Librería Cristiana La Senda",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0F3D2E",
+  "theme_color": "#0F3D2E",
+  "icons": [
+    { "src": "logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "logo.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

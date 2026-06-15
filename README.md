@@ -3,7 +3,7 @@
 App web administrativa para la Librería Cristiana **La Senda**. Responsive (móvil y escritorio). Frontend React + backend Oracle APEX (ORDS).
 
 ## Pantallas incluidas
-- **Login** real contra `POST /auth/login` (usuario + contraseña, no email); "recordar usuario y contraseña", toggle de tema y **biometría** (Face ID / Touch ID / huella o WebAuthn)
+- **Login** real contra `POST /auth/login` (usuario + contraseña, no email); "recordar usuario y contraseña", toggle de tema, **biometría** (Face ID / Touch ID / huella o WebAuthn) y botón **Instalar app (PWA)** para Android / iPhone
 - **Dashboard** con KPIs y últimas ventas
 - **Menú jerárquico** (acordeón) con 3 grupos: Configuración Inicial, Día a día, Resultados — sidebar en desktop, drawer en móvil
 - **Artículos** (`Configuración Inicial`): listado desde API con header `X-Token`, búsqueda, modal de detalle y CRUD (crear / modificar / eliminar)
@@ -25,9 +25,19 @@ npm run build     # build de producción a dist/
 npm run preview   # previsualizar el build
 ```
 
-## App móvil (Android / iOS) — Capacitor
+## Instalación PWA (Android / iPhone / iPad)
 
-La app es instalable como app nativa mediante Capacitor.
+La app web es instalable como **PWA** (Progressive Web App) desde la pantalla de login, sin pasar por tiendas:
+
+- **Android (Chrome/Edge)**: botón **“Instalar app (Android)”** → dispara el prompt nativo `beforeinstallprompt`.
+- **iPhone / iPad (Safari)**: botón **“Instalar app (iPhone / iPad)”** → muestra la instrucción *Compartir → “Agregar a inicio”* (Safari no expone prompt programático).
+- El botón se oculta automáticamente si la app ya corre instalada (`display-mode: standalone`).
+
+Requisitos de instalabilidad (ya incluidos): `public/manifest.webmanifest`, `public/sw.js` (service worker mínimo, registrado en `src/main.tsx` solo en web) y los `<meta>` de `index.html`. Requiere HTTPS (GitHub Pages lo provee).
+
+## App móvil nativa (Android / iOS) — Capacitor
+
+La app también puede compilarse como app nativa mediante Capacitor.
 
 ```bash
 npm run sync      # build web + copia a android/ e ios/
@@ -60,7 +70,9 @@ Notas:
 ## Estructura
 ```
 public/
-  logo.png                 # Logo de la marca
+  logo.png                 # Logo de la marca (también icono PWA)
+  manifest.webmanifest     # Manifest PWA (instalación en Android/iOS)
+  sw.js                    # Service worker mínimo (habilita instalabilidad)
 src/
   main.tsx                 # Entry (init nativo: status bar / splash)
   App.tsx                  # Rutas + providers

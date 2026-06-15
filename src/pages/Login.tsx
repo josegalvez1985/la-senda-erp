@@ -25,6 +25,12 @@ export function Login() {
   const [loading, setLoading] = useState(false);
   const [bioReady, setBioReady] = useState(false);
   const [bioUser, setBioUser] = useState<string | null>(null);
+  const [installPrompt, setInstallPrompt] = useState<any>(null);
+  const [showIosHelp, setShowIosHelp] = useState(false);
+  const isIos = isWeb && /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isStandalone =
+    isWeb &&
+    (window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true);
 
   useEffect(() => {
     (async () => {
@@ -37,6 +43,29 @@ export function Login() {
       setBioUser(name);
     })();
   }, []);
+
+  useEffect(() => {
+    const onPrompt = (e: Event) => {
+      e.preventDefault();
+      setInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', onPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', onPrompt);
+  }, []);
+
+  const onInstall = async () => {
+    if (isIos) {
+      setShowIosHelp((v) => !v);
+      return;
+    }
+    if (installPrompt) {
+      installPrompt.prompt();
+      await installPrompt.userChoice;
+      setInstallPrompt(null);
+    } else {
+      show('Para instalar, abrí el menú del navegador y elegí “Instalar app” o “Agregar a pantalla de inicio”.', 'info');
+    }
+  };
 
   const onSubmit = async () => {
     if (loading) return;
@@ -95,11 +124,21 @@ export function Login() {
           <li><ion-icon name="checkmark-circle" /> Inventario en tiempo real</li>
           <li><ion-icon name="checkmark-circle" /> Reportes y respaldos</li>
         </ul>
-        {isWeb && (
-          <a className="login-apk" href={`${import.meta.env.BASE_URL}la-senda.apk`} download>
-            <ion-icon name="logo-android" style={{ fontSize: 20 }} />
-            <span>Descargar app Android (APK)</span>
-          </a>
+        {isWeb && !isStandalone && (
+          <>
+            <button className="login-apk" onClick={onInstall} type="button">
+              <ion-icon name={isIos ? 'logo-apple' : 'logo-android'} style={{ fontSize: 20 }} />
+              <span>Instalar app{isIos ? ' (iPhone / iPad)' : ' (Android)'}</span>
+            </button>
+            {isIos && showIosHelp && (
+              <div className="login-pwa-help">
+                <p>
+                  <ion-icon name="share-outline" /> Tocá <strong>Compartir</strong> en Safari y luego
+                  <strong> “Agregar a inicio”</strong>.
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
 
