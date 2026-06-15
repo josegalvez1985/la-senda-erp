@@ -44,18 +44,34 @@ export function Login() {
     })();
   }, []);
 
+  // Android/Chrome: en cuanto el navegador ofrece instalar, lanzamos el diálogo
+  // automáticamente (una sola vez), sin esperar a que el usuario toque el botón.
   useEffect(() => {
-    const onPrompt = (e: Event) => {
+    const onPrompt = async (e: Event) => {
       e.preventDefault();
       setInstallPrompt(e);
+      if (isStandalone || localStorage.getItem('@lasenda/pwa-prompted')) return;
+      localStorage.setItem('@lasenda/pwa-prompted', '1');
+      (e as any).prompt();
+      await (e as any).userChoice;
+      setInstallPrompt(null);
     };
     window.addEventListener('beforeinstallprompt', onPrompt);
     return () => window.removeEventListener('beforeinstallprompt', onPrompt);
-  }, []);
+  }, [isStandalone]);
+
+  // iOS/Safari: no existe API de instalación; mostramos el modal guiado
+  // automáticamente al entrar (una vez), ya que es el único camino posible.
+  useEffect(() => {
+    if (isIos && !isStandalone && !localStorage.getItem('@lasenda/pwa-prompted')) {
+      localStorage.setItem('@lasenda/pwa-prompted', '1');
+      setShowIosHelp(true);
+    }
+  }, [isIos, isStandalone]);
 
   const onInstall = async () => {
     if (isIos) {
-      setShowIosHelp((v) => !v);
+      setShowIosHelp(true);
       return;
     }
     if (installPrompt) {
@@ -125,20 +141,10 @@ export function Login() {
           <li><ion-icon name="checkmark-circle" /> Reportes y respaldos</li>
         </ul>
         {isWeb && !isStandalone && (
-          <>
-            <button className="login-apk" onClick={onInstall} type="button">
-              <ion-icon name={isIos ? 'logo-apple' : 'logo-android'} style={{ fontSize: 20 }} />
-              <span>Instalar app{isIos ? ' (iPhone / iPad)' : ' (Android)'}</span>
-            </button>
-            {isIos && showIosHelp && (
-              <div className="login-pwa-help">
-                <p>
-                  <ion-icon name="share-outline" /> Tocá <strong>Compartir</strong> en Safari y luego
-                  <strong> “Agregar a inicio”</strong>.
-                </p>
-              </div>
-            )}
-          </>
+          <button className="login-apk" onClick={onInstall} type="button">
+            <ion-icon name={isIos ? 'logo-apple' : 'logo-android'} style={{ fontSize: 20 }} />
+            <span>Instalar app{isIos ? ' (iPhone / iPad)' : ' (Android)'}</span>
+          </button>
         )}
       </div>
 
@@ -211,6 +217,36 @@ export function Login() {
           </div>
         </div>
       </div>
+
+      {isIos && showIosHelp && !isStandalone && (
+        <div className="pwa-modal" onClick={() => setShowIosHelp(false)}>
+          <div className="pwa-modal-card" onClick={(e) => e.stopPropagation()}>
+            <button className="pwa-modal-close" onClick={() => setShowIosHelp(false)} aria-label="Cerrar">
+              <ion-icon name="close" />
+            </button>
+            <div className="pwa-modal-logo">
+              <img src={`${import.meta.env.BASE_URL}logo.png`} alt="La Senda" />
+            </div>
+            <h3>Instalá La Senda en tu iPhone</h3>
+            <p className="pwa-modal-sub">Tené la app a un toque, como cualquier otra.</p>
+            <ol className="pwa-steps">
+              <li>
+                <span className="pwa-step-n">1</span>
+                <span>Tocá <strong>Compartir</strong> <ion-icon name="share-outline" /> en la barra de Safari.</span>
+              </li>
+              <li>
+                <span className="pwa-step-n">2</span>
+                <span>Elegí <strong>“Agregar a inicio”</strong> <ion-icon name="add-circle-outline" />.</span>
+              </li>
+              <li>
+                <span className="pwa-step-n">3</span>
+                <span>Confirmá con <strong>Agregar</strong>. ¡Listo!</span>
+              </li>
+            </ol>
+            <button className="pwa-modal-ok" onClick={() => setShowIosHelp(false)}>Entendido</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
